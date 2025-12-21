@@ -1,0 +1,16 @@
+{
+  "name": "Cadence Timer",
+  "short_name": "Cadence",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#121212",
+  "theme_color": "#bfff00",
+  "description": "Exercise Cadence Timer",
+  "icons": [
+    {
+      "src": "/vite.svg", 
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
