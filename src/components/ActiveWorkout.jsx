@@ -2,21 +2,46 @@ import { useEffect, useRef, useState } from 'react';
 import { useCadenceTimer, PHASE } from '../hooks/useCadenceTimer';
 import { useTTS } from '../hooks/useTTS';
 import { Pause, Play, SkipForward, X, AlertTriangle } from 'lucide-react';
+import NumberInput from './common/NumberInput';
+import WorkoutSummary from './WorkoutSummary';
 
 export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
-    const { state, start, pause, resume, skip, registerFailure, logSetData } = useCadenceTimer();
+    const { state, start, pause, resume, skip, registerFailure, finishWorkout, logSetData } = useCadenceTimer();
     const { speak, playBeep } = useTTS();
     const prevPhaseRef = useRef(state.phase);
     const prevTimeRef = useRef(state.timeLeft);
 
-    // Local state for weight input during rest
-    // Local state for weight input during rest
+    // Initial Wake Lock
+    useEffect(() => {
+        let wakeLock = null;
+        const requestWakeLock = async () => {
+            try {
+                if ('wakeLock' in navigator) {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                }
+            } catch (err) {
+                console.error(`${err.name}, ${err.message}`);
+            }
+        };
+        requestWakeLock();
+        return () => {
+            if (wakeLock)
+                wakeLock.release();
+        };
+    }, []);
+
+    // Local state for inputs during rest
     const [weightInput, setWeightInput] = useState('');
-    const weightInputRef = useRef(weightInput); // To access current value in effects without stale closures
+    const [repsInput, setRepsInput] = useState('');
+
+    // Refs to avoid stale closures in effects
+    const weightInputRef = useRef(weightInput);
+    const repsInputRef = useRef(repsInput);
+
     const [showExitConfirm, setShowExitConfirm] = useState(false);
 
-    // Sync ref
     useEffect(() => { weightInputRef.current = weightInput; }, [weightInput]);
+    useEffect(() => { repsInputRef.current = repsInput; }, [repsInput]);
 
     // Start on mount
     useEffect(() => {
@@ -25,153 +50,122 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
         }
     }, [workout, start]);
 
-    // Handle Workout Finish
-    useEffect(() => {
-        if (state.status === 'FINISHED' && onFinishWorkout) {
-            // Pass the collected weightData back up
-            onFinishWorkout(state.weightData);
-        }
-    }, [state.status, state.weightData, onFinishWorkout]);
 
-    // Audio Logic
+    // Audio Logic & Auto-Save Logic on Phase Change
     useEffect(() => {
         if (state.phase !== prevPhaseRef.current) {
-
             const p = state.phase;
             const prevP = prevPhaseRef.current;
 
-            // Auto-save Weight when LEAVING Rest
+            // LEAVING Rest: Auto-save Weight & Reps
             if (prevP === PHASE.REST_SET || prevP === PHASE.REST_EXERCISE) {
-                const val = parseFloat(weightInputRef.current);
-                // Check if it's a valid number (even 0 is valid, but empty string is not NaN but parseFloat('') is NaN)
-                if (!isNaN(val)) {
-                    // Update the last entry in history (which corresponds to the set just finished before this rest)
-                    const lastEntry = state.weightData[state.weightData.length - 1];
-                    if (lastEntry) {
-                        logSetData(lastEntry.exerciseId, lastEntry.setNumber, lastEntry.reps, val);
-                    }
+                const wVal = parseFloat(weightInputRef.current);
+                const rVal = parseInt(repsInputRef.current);
+
+                // Update the last entry (the set just finished before this rest)
+                const lastEntry = state.weightData[state.weightData.length - 1];
+                if (lastEntry) {
+                    const finalWeight = !isNaN(wVal) ? wVal : (lastEntry.weight || 0);
+                    const finalReps = !isNaN(rVal) ? rVal : lastEntry.reps;
+
+                    // Determine if we are saving Reps or Time
+                    // We need to look up current exercise ISOMETRIC status.
+                    // But 'state.exerciseIndex' might have advanced if rest is over?
+                    // No, transition happens AFTER this effect hook. This hook runs ON change.
+                    // The 'state' here is the NEW state.
+                    // If we just entered PREP (from Rest), state.exerciseIndex might be next exercise.
+                    // So we must use lastEntry.exerciseId to find exercise.
+                    const ex = workout.exercises.find(e => e.id === lastEntry.exerciseId);
+                    const isIso = ex && ex.isIsometric;
+
+                    // If Isometric, rVal is TIME. pass as 'time'. Reps should be 0 or ignored.
+                    logSetData(lastEntry.exerciseId, lastEntry.setNumber, isIso ? 0 : finalReps, finalWeight, isIso ? finalReps : 0);
                 }
             }
 
-            // Reset weight input on new rest phase
+            // ENTERING Rest: Pre-fill inputs
             if (p === PHASE.REST_SET || p === PHASE.REST_EXERCISE) {
-                // Find last weight for THIS exercise
-                // We access current exercise from props/state? We need workout from props.
-                // But we are inside effect. state.exerciseIndex is current.
-                // Note: If we just finished set 1, we want set 1's weight? 
-                // NO. The user wants to "repeat the same weight in the NEXT set".
-                // So if I just did 10kg, I want 10kg to appear so I can just confirm or change.
-
-                // We need the weight of the *previous* set of *this* exercise.
-                // Or if it's the first set of this exercise? Maybe default to 0.
-
-                // Let's look at weightData.
-                // If we are in REST_SET (going to set 2), we want Set 1's weight.
-                // If we are in REST_EXERCISE (going to next ex), wait. 
-                // The User said: "Within a SAME exercise, if charge was informed in last set, repeat it in next".
-
-                // So if I am in Rest 1->2. Look for Set 1.
-                // weightData has Set 1.
-                // But weightData might NOT have it yet if I haven't typed it?
-                // Ah, I type it in the CURRENT rest.
-
-                // Wait. The requirement: "If charge was informed in LAST set".
-                // Set 1 -> Rest. I type 10kg.
-                // Set 2 -> Rest. I want 10kg to appear (from Set 1).
-
-                // So when I enter Rest Set 2 (after finishing Set 2), I want to see what I lifted in Set 1?
-                // OR does the user mean: "I lifted 10kg in Set 1. Now I am in Rest. I input 10kg."?
-                // NO. "Repeat the same charge in the NEXT."
-
-                // Interpretation:
-                // Set 1 Done. Rest Screen Appears. Input is empty. I type 10kg.
-                // Set 2 Starts. Set 2 Done. Rest Screen Appears. Input should be "10kg" (pre-filled).
-
-                // So when entering Rest (for Set N), lookup weight for Set N-1.
-                // Correct.
-
                 const currentExId = workout.exercises[state.exerciseIndex].id;
-                // Wait. state.setNumber in REST_SET is already N+1 (the next set).
-                // Example: Finish Set 1. Call finishSet. setNumber becomes 2. Phase REST_SET.
-                // So state.setNumber is 2. We want weight from Set 1.
-                // So target set to find = state.setNumber - 1.
-
-                // Search weightData for currentExerciseId
                 const exerciseLogs = state.weightData.filter(w => w.exerciseId === currentExId);
 
-                // We want the weight from the PREVIOUS set (not the one just finished/added which is 0)
-                // If we just finished Set 2 (rest phase), logs has [Set1, Set2]. We want Set1.
-                // If we just finished Set 1, logs has [Set1]. We want nothing (or previous history if we eventually add that).
+                // The last global entry is the set just completed
+                const lastGlobalEntry = state.weightData[state.weightData.length - 1];
 
                 let suggestedWeight = '';
-                if (exerciseLogs.length >= 2) {
-                    const prevSetLog = exerciseLogs[exerciseLogs.length - 2];
-                    if (prevSetLog && prevSetLog.weight) {
-                        suggestedWeight = prevSetLog.weight;
+                let suggestedReps = '';
+
+                if (lastGlobalEntry) {
+                    const ex = workout.exercises.find(e => e.id === lastGlobalEntry.exerciseId);
+                    const isIso = ex && ex.isIsometric;
+
+                    suggestedWeight = lastGlobalEntry.weight || '';
+                    // If weight is 0, maybe try to find previous set to suggest?
+                    if (!suggestedWeight && exerciseLogs.length >= 2) {
+                        // Try set before this one (index - 2 because index-1 is the just finished one)
+                        suggestedWeight = exerciseLogs[exerciseLogs.length - 2].weight;
                     }
+
+                    suggestedReps = isIso ? Math.floor(lastGlobalEntry.time) : lastGlobalEntry.reps;
                 }
 
-                // Use setTimeout to avoid direct state update during render cycle/effect
+                // Use setTimeout to update state
                 setTimeout(() => {
                     setWeightInput(suggestedWeight);
+                    setRepsInput(suggestedReps);
                 }, 0);
             }
 
+            // Audio Announcements
             switch (p) {
-                case PHASE.PREP:
-                    speak("Preparar", 1.2);
-                    break;
-                case PHASE.ECCENTRIC:
-                    speak("Desce", 1.3);
-                    break;
-                case PHASE.CONCENTRIC:
-                    speak("Sobe", 1.3);
-                    break;
+                case PHASE.PREP: speak("Preparar", 1.2); break;
+                case PHASE.ECCENTRIC: speak("Desce", 1.3); break;
+                case PHASE.CONCENTRIC: speak("Sobe", 1.3); break;
                 case PHASE.BOTTOM_HOLD:
                 case PHASE.TOP_HOLD:
-                case PHASE.ISOMETRIC_WORK:
-                    speak("Segura", 1.2);
-                    break;
+                case PHASE.ISOMETRIC_WORK: speak("Segura", 1.2); break;
                 case PHASE.REST_SET:
-                case PHASE.REST_EXERCISE:
-                    speak("Descansa");
-                    break;
-                case PHASE.FINISHED:
-                    speak("Treino Concluído");
-                    break;
+                case PHASE.REST_EXERCISE: speak("Descansa"); break;
+                case PHASE.FINISHED: speak("Treino Concluído"); break;
             }
             prevPhaseRef.current = p;
         }
 
+        // Beep logic (last 3 seconds)
         const isLongPhase = state.phaseDuration > 3;
         const isRest = state.phase === PHASE.REST_SET || state.phase === PHASE.REST_EXERCISE || state.phase === PHASE.PREP;
 
         if (isLongPhase || isRest) {
             const currentSec = Math.ceil(state.timeLeft);
             const prevSec = Math.ceil(prevTimeRef.current);
-
             if (currentSec <= 3 && currentSec > 0 && currentSec !== prevSec) {
                 playBeep(600, 0.1, 'triangle');
             }
         }
         prevTimeRef.current = state.timeLeft;
 
-    }, [state.phase, state.timeLeft, state.phaseDuration, speak, playBeep]);
+    }, [state.phase, state.timeLeft, state.phaseDuration, speak, playBeep, logSetData, state.weightData, workout.exercises, state.exerciseIndex]);
 
-    // Autosave weight when user types (debounced or on blur? let's do blur or convenient button)
-    const handleWeightSave = () => {
-        // We need to identify WHICH set to update.
-        // If we switched Exercise, setNumber is 1. We need the LAST exercise set.
 
-        // Let's look at state.weightData last entry.
+    // Manual Save Handler (onBlur or onChange)
+    const handleInputSave = () => {
         const lastEntry = state.weightData[state.weightData.length - 1];
         if (lastEntry) {
-            logSetData(lastEntry.exerciseId, lastEntry.setNumber, lastEntry.reps, parseFloat(weightInput));
+            const wVal = parseFloat(weightInputRef.current); // Use Ref to rely on latest
+            const rVal = parseInt(repsInputRef.current);
+
+            const finalWeight = !isNaN(wVal) ? wVal : lastEntry.weight;
+            const finalReps = !isNaN(rVal) ? rVal : lastEntry.reps;
+
+            const ex = workout.exercises.find(e => e.id === lastEntry.exerciseId);
+            const isIso = ex && ex.isIsometric;
+
+            logSetData(lastEntry.exerciseId, lastEntry.setNumber, isIso ? 0 : finalReps, finalWeight, isIso ? finalReps : 0);
         }
     };
 
-    // Visuals
-    const currentExercise = workout.exercises[state.exerciseIndex];
+
+    // Render Helpers
+    const currentExercise = workout.exercises[state.exerciseIndex] || {};
 
     const getPhaseColor = () => {
         switch (state.phase) {
@@ -205,60 +199,103 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
 
     const progress = (state.phaseDuration - state.timeLeft) / state.phaseDuration;
     const progressPct = state.phaseDuration > 0 ? progress * 100 : 0;
-
     const isResting = state.phase.includes('REST');
+
+    // If Summary is active, render it overlaying everything
+    if (state.status === 'FINISHED') {
+        return (
+            <div style={{ position: 'fixed', inset: 0, overflowY: 'auto', background: '#121212', zIndex: 300 }}>
+                <WorkoutSummary
+                    workout={workout}
+                    weightData={state.weightData}
+                    onSave={(finalData) => onFinishWorkout(finalData)}
+                    onDiscard={onExit}
+                    startTime={state.startTime}
+                    finishTime={state.finishTime}
+                />
+            </div>
+        );
+    }
 
     return (
         <div className="active-workout" style={{
-            position: 'fixed',
-            top: 0, left: 0, right: 0, bottom: 0,
+            position: 'fixed', inset: 0,
             backgroundColor: getPhaseColor(),
             color: '#000',
             transition: 'background-color 0.3s ease',
-            display: 'flex',
-            flexDirection: 'column',
-            zIndex: 100
+            display: 'flex', flexDirection: 'column', zIndex: 100
         }}>
 
-            <div style={{
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                alignItems: 'center',
-                color: (state.phase === PHASE.PREP || state.phase === PHASE.FINISHED) ? 'white' : 'black'
-            }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: (state.phase === PHASE.PREP || state.phase === PHASE.FINISHED) ? 'white' : 'black' }}>
 
                 {/* Header Info */}
-                <div style={{ position: 'absolute', top: 20, left: 0, right: 0, padding: '0 20px', display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '1.2em', fontWeight: 600 }}>{currentExercise.name}</span>
-                    <span style={{ fontSize: '1.2em' }}>Série {state.setNumber}/{currentExercise.sets}</span>
+                {/* Header Info */}
+                <div style={{ position: 'absolute', top: 20, left: 0, right: 0, padding: '0 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                        <span style={{ fontSize: '1.2em', fontWeight: 600 }}>{currentExercise.name}</span>
+                        <span style={{ fontSize: '1.2em' }}>Série {state.setNumber}/{currentExercise.sets}</span>
+                    </div>
+
+                    {/* Global Timer */}
+                    {state.startTime && (
+                        <div style={{ fontSize: '1em', opacity: 0.8, fontWeight: 'bold' }}>
+                            {(() => {
+                                const diff = Math.floor(state.totalWorkoutTime || 0);
+                                const m = Math.floor(diff / 60).toString().padStart(2, '0');
+                                const s = (diff % 60).toString().padStart(2, '0');
+                                return `${m}:${s}`;
+                            })()}
+                        </div>
+                    )}
                 </div>
 
                 {/* Main Counter */}
                 {!isResting && (
                     <div style={{ fontSize: '12rem', fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
                         {currentExercise.isIsometric && currentExercise.failureMode && state.timeLeft > 60
-                            ? Math.floor(state.isometricTime) // Count UP using Floor (0, 1, 2...)
-                            : Math.ceil(state.timeLeft) // Otherwise count down
+                            ? Math.floor(state.isometricTime)
+                            : Math.ceil(state.timeLeft)
                         }
                     </div>
                 )}
 
-                {/* Rest UI with Weight Input */}
+                {/* Rest UI with Inputs */}
                 {isResting && (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
                         <div style={{ fontSize: '8rem', fontWeight: 900 }}>{Math.ceil(state.timeLeft)}</div>
-                        <div style={{ background: 'rgba(255,255,255,0.9)', padding: '20px', borderRadius: '16px', color: 'black' }}>
-                            <label style={{ display: 'block', fontSize: '1.2rem', marginBottom: '8px' }}>Carga Realizada (kg)</label>
-                            <input
-                                type="number"
-                                value={weightInput}
-                                onChange={(e) => setWeightInput(e.target.value)}
-                                onBlur={handleWeightSave}
-                                placeholder="0"
-                                style={{ fontSize: '2rem', width: '120px', textAlign: 'center', padding: '10px', borderRadius: '8px', border: '2px solid #333' }}
-                            />
+                        <div style={{ background: 'rgba(255,255,255,0.9)', padding: '20px', borderRadius: '16px', color: 'black', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                <label style={{ fontSize: '1rem', marginBottom: '8px' }}>Carga (kg)</label>
+                                <NumberInput
+                                    value={weightInput}
+                                    onChange={(v) => { setWeightInput(v); handleInputSave(); }}
+                                    placeholder="0"
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                <label style={{ fontSize: '1rem', marginBottom: '8px' }}>
+                                    {/* Detect if PREVIOUS exercise (the one we are resting after) was Isometric */}
+                                    {(() => {
+                                        // We need the exercise corresponding to the inputs, which is the LAST entry logged.
+                                        // Or simply check currentExercise if we assume we are resting AFTER it?
+                                        // If PHASE is REST_SET, we are resting after 'currentExercise'.
+                                        // If PHASE is REST_EXERCISE, we are resting after a generic "prev" exercise. 
+                                        // Actually state.exerciseIndex points to the NEXT exercise in REST_EXERCISE phase (logic in transitionPhase: exerciseIndex + 1).
+                                        // So if REST_EXERCISE, look at index - 1.
+
+                                        const refIndex = state.phase === PHASE.REST_EXERCISE ? state.exerciseIndex - 1 : state.exerciseIndex;
+                                        const refEx = workout.exercises[refIndex];
+                                        return (refEx && refEx.isIsometric) ? 'Tempo (s)' : 'Reps Feitas';
+                                    })()}
+                                </label>
+                                <NumberInput
+                                    value={repsInput}
+                                    onChange={(v) => { setRepsInput(v); handleInputSave(); }}
+                                    placeholder="0"
+                                />
+                            </div>
                         </div>
                     </div>
                 )}
@@ -267,18 +304,19 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
                     {getPhaseName()}
                 </div>
 
-                {/* Rep Counter (Actual vs Target) */}
-                {!isResting && state.phase !== PHASE.FINISHED && (
+                {/* Rep Counter */}
+                {!isResting && state.phase !== PHASE.FINISHED && state.phase !== PHASE.PREP && (
                     <div style={{ fontSize: '2.5rem', marginTop: '20px' }}>
                         {currentExercise.isIsometric ? (
                             <span>Tempo: {Math.floor(state.isometricTime)}s</span>
                         ) : (
-                            <span>Rep {state.actualReps} <span style={{ fontSize: '0.6em', opacity: 0.6 }}>/ {currentExercise.reps}</span></span>
+                            // Start at 1. If 0 completed, show 1.
+                            <span>Rep {state.actualReps + 1} <span style={{ fontSize: '0.6em', opacity: 0.6 }}>/ {currentExercise.reps}</span></span>
                         )}
                     </div>
                 )}
 
-                {/* Rest Info */}
+                {/* Rest Next Info */}
                 {isResting && (
                     <div style={{ fontSize: '1.5rem', marginTop: '20px' }}>
                         Próximo: {state.phase === PHASE.REST_EXERCISE ?
@@ -287,39 +325,25 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
                     </div>
                 )}
 
-                {/* Failure / Finish Button - Only if enabled for this exercise */}
+                {/* Failure / Finish Button */}
                 {!isResting && state.phase !== PHASE.FINISHED && state.phase !== PHASE.PREP && currentExercise.failureMode && (
                     <button
                         onClick={registerFailure}
                         style={{
-                            marginTop: '40px',
-                            padding: '20px 40px',
-                            fontSize: '1.5rem',
-                            background: '#ff4d4d',
-                            color: 'white',
-                            border: '4px solid white',
-                            borderRadius: '50px',
-                            boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '10px'
+                            marginTop: '40px', padding: '20px 40px', fontSize: '1.5rem',
+                            background: '#ff4d4d', color: 'white', border: '4px solid white', borderRadius: '50px',
+                            boxShadow: '0 4px 15px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '10px'
                         }}
                     >
                         <AlertTriangle size={32} />
                         FALHA / ACABEI
                     </button>
                 )}
-
             </div>
 
-            <div style={{
-                padding: '30px',
-                display: 'flex',
-                justifyContent: 'space-around',
-                background: 'rgba(0,0,0,0.2)',
-                backdropFilter: 'blur(10px)'
-            }}>
-                <button onClick={() => setShowExitConfirm(true)} style={{ background: 'transparent', color: 'white', border: '1px solid white' }}>
+            {/* Controls */}
+            <div style={{ padding: '30px', display: 'flex', justifyContent: 'space-around', background: 'rgba(0,0,0,0.2)', backdropFilter: 'blur(10px)' }}>
+                <button onClick={() => setShowExitConfirm(true)} style={{ background: 'transparent', color: 'white', border: '1px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px 20px', borderRadius: '8px' }}>
                     <X /> Sair
                 </button>
 
@@ -329,69 +353,32 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
                     </button>
                 )}
 
-                <button onClick={skip} style={{ background: 'transparent', color: 'white', border: '1px solid white' }}>
+                <button onClick={skip} style={{ background: 'transparent', color: 'white', border: '1px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px 20px', borderRadius: '8px' }}>
                     <SkipForward /> Pular
                 </button>
             </div>
 
             {/* Progress Bar */}
-            <div style={{
-                height: '10px',
-                background: 'rgba(0,0,0,0.1)',
-                width: '100%',
-                position: 'absolute',
-                bottom: '124px'
-            }}>
-                <div style={{
-                    height: '100%',
-                    background: 'currentColor',
-                    width: `${progressPct}%`,
-                    transition: 'width 0.1s linear'
-                }} />
+            <div style={{ height: '10px', background: 'rgba(0,0,0,0.1)', width: '100%', position: 'absolute', bottom: '124px' }}>
+                <div style={{ height: '100%', background: 'currentColor', width: `${progressPct}%`, transition: 'width 0.1s linear' }} />
             </div>
 
+            {/* Exit Modal */}
+            {showExitConfirm && (
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', zIndex: 200, padding: '20px' }}>
+                    <h2 style={{ marginBottom: '30px', color: 'white' }}>Pausar Treino?</h2>
 
+                    <button onClick={() => { setShowExitConfirm(false); finishWorkout(); }} style={{ width: '100%', maxWidth: '300px', padding: '16px', marginBottom: '16px', background: 'var(--color-primary)', color: 'black', fontWeight: 'bold' }}>
+                        FINALIZAR E SALVAR
+                    </button>
 
-            {/* Exit Confirmation Modal */}
-            {
-                showExitConfirm && (
-                    <div style={{
-                        position: 'fixed',
-                        top: 0, left: 0, right: 0, bottom: 0,
-                        backgroundColor: 'rgba(0,0,0,0.85)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        zIndex: 200,
-                        padding: '20px'
-                    }}>
-                        <h2 style={{ marginBottom: '30px', color: 'white' }}>Pausar Treino?</h2>
+                    <button onClick={onExit} style={{ width: '100%', maxWidth: '300px', padding: '16px', marginBottom: '16px', background: '#ff4d4d', color: 'white' }}>
+                        SAIR SEM SALVAR
+                    </button>
 
-                        <button
-                            onClick={() => onFinishWorkout(state.weightData)}
-                            style={{ width: '100%', maxWidth: '300px', padding: '16px', marginBottom: '16px', background: 'var(--color-primary)', color: 'black', fontWeight: 'bold' }}
-                        >
-                            FINALIZAR E SALVAR
-                        </button>
-
-                        <button
-                            onClick={onExit}
-                            style={{ width: '100%', maxWidth: '300px', padding: '16px', marginBottom: '16px', background: '#ff4d4d', color: 'white' }}
-                        >
-                            SAIR SEM SALVAR
-                        </button>
-
-                        <button
-                            onClick={() => setShowExitConfirm(false)}
-                            style={{ background: 'transparent', color: '#aaa', marginTop: '10px' }}
-                        >
-                            Cancelar
-                        </button>
-                    </div>
-                )
-            }
-
-        </div >
+                    <button onClick={() => setShowExitConfirm(false)} style={{ background: 'transparent', color: '#aaa', marginTop: '10px' }}>Cancel</button>
+                </div>
+            )}
+        </div>
     );
 }

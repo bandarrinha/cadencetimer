@@ -1,52 +1,64 @@
-# ⏱️ Cadence Timer
+# Cadence Timer
 
-**Cadence Timer** é um Web App Progressivo (PWA) moderno projetado para treinos de musculação focados em **cadência** (tempo sob tensão) e **precisão**. Ele funciona como um *Personal Trainer* digital, guiando cada repetição com comandos de voz e visuais claros.
+Uma aplicação web para treinos de musculação com controle de cadência, projetada para auxiliar na execução precisa de repetições com tempos definidos para cada fase (excêntrica, pausa, concêntrica, pausa).
 
-## 🚀 Funcionalidades Principais
+## Funcionalidades
 
-### 🏋️ Controle Total de Cadência
-Configure tempos específicos para cada fase do movimento:
-- **Excêntrica (Desce)**: Controle a descida do peso (Cor: Verde).
-- **Concêntrica (Sobe)**: Controle a subida (Cor: Laranja).
-- **Pausas (Hold)**: Isometria no topo ou embaixo (Cor: Dourada).
-*O app dita o ritmo com cores e comandos de voz ("Desce", "Segura", "Sobe").*
+*   **Timer de Cadência:** Controle visual e sonoro para cada fase do movimento (Excêntrica, Concêntrica, Isometria).
+*   **Cronômetro Global:** Visualização do tempo total de treino durante a execução.
+*   **Edição em Tempo Real:** Ajuste carga e repetições (ou tempo de isometria) durante o descanso.
+*   **Suporte a Isometria:** Inputs adaptativos que registram "Tempo (s)" para exercícios isométricos e "Reps" para dinâmicos.
+*   **Wake Lock:** Mantém a tela do celular ligada durante o treino.
+*   **Resumo de Treino Detalhado:** Tela de finalização com:
+    *   Comparativo com o treino anterior (indicadores de performance).
+    *   Edição inline compacta e intuitiva.
+    *   Cálculo automático de duração total.
+*   **Histórico:** Registro detalhado de treinos com possibilidade de edição posterior.
+*   **Importar/Exportar:** Backup e restauração de dados (treinos e histórico) via arquivo JSON.
+*   **Inputs Inteligentes:** Botões de + e - para facilitar a entrada de dados.
 
-### 🧘 Modo Isometria
-Suporte completo para exercícios estáticos (como Prancha):
-- Defina um **Tempo Alvo** ao invés de repetições.
-- O timer mostra o tempo decorrido.
-- Opção **"Até a Falha"**: O tempo continua contando até você decidir parar.
+## Como Usar
 
-### 💾 Histórico Inteligente
-- **Registro Automático**: Cada série é salva assim que concluída.
-- **Sugestão de Carga**: O app lembra a carga usada na série/treino anterior e já preenche o campo para você.
-- **Auto-Save**: Ao terminar o descanso, a carga digitada é salva, mesmo sem clicar em salvar.
-- **Visualização**: Veja o histórico completo agrupado por data e exercício.
+1.  **Configuração (Setup):**
+    *   Crie "Treinos" (ex: Treino A, Treino B).
+    *   Adicione exercícios e configure:
+        *   Séries e Repetições Alvo.
+        *   **Cadência:** Segundos para Desce (Excêntrica), Pausa em Baixo, Sobe (Concêntrica), Pausa em Cima.
+        *   Intervalos de Descanso (Entre Séries e Entre Exercícios).
+        *   Modo "Até a Falha" e "Isometria".
+    *   Use os botões de **Backup** e **Restaurar** para salvar suas configurações.
 
-### 🛠️ Personalização Completa
-- Crie múltiplos treinos (ex: Treino A, Treino B).
-- Clone exercícios anteriores para facilitar a configuração.
-- Opção **Falha**: Botão grande para registrar o momento exato da falha muscular.
+2.  **Treino Ativo:**
+    *   Siga as instruções visuais e sonoras.
+    *   O contador de repetições começa em 1.
+    *   **Timer Global:** Acompanhe a duração total do treino no canto superior direito.
+    *   Ao terminar uma série, durante o descanso, use os campos de input para corrigir a carga e as repetições realizadas *naquela série*.
+        *   Se o exercício for **Isométrico**, o campo de repetições mudará automaticamente para **"Tempo (s)"**.
+    *   Botão "Falha/Acabei" encerra a série antecipadamente.
 
-### 📱 Experiencia PWA
-- Instale no celular (Android/iOS) diretamente pelo navegador.
-- Funciona offline.
-- Evita bloqueio de tela durante o treino.
+3.  **Finalização:**
+    *   Ao completar todos os exercícios, você verá a tela de **Resumo**.
+    *   Revise os dados de cada série. Ajuste se necessário.
+    *   Clique em "Salvar e Fechar" para gravar no histórico.
 
-## 📦 Instalação e Uso
+## Instalação e Execução
 
-O projeto foi construído com **React** + **Vite**.
+Projeto construído com React e Vite.
 
-### Rodar Localmente
 ```bash
 npm install
 npm run dev
 ```
 
-### Build para Produção
+Para rodar os testes:
+
 ```bash
-npm run build
+npm test
 ```
 
----
-*Desenvolvido por Daniel Bandarrinha (bandarrinha@gmail.com)*
+## Tecnologias
+
+*   React
+*   Vite
+*   Vitest (Testes Unitários)
+*   Lucide React (Ícones)

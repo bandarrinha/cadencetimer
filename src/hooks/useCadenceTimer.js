@@ -24,8 +24,9 @@ const initialState = {
     timeLeft: 0,
     phaseDuration: 0, // To calc progress
     workout: null, // Will be populated on start
-    weightData: [], // Stores history: { exerciseId, set, reps, weight, duration }
-    isometricTime: 0 // Track time for pure isometric exercises
+    startTime: null, // Timestamp when workout started
+    finishTime: null, // Timestamp when workout finished
+    totalWorkoutTime: 0 // Duration in seconds
 };
 
 function timerReducer(state, action) {
@@ -48,15 +49,15 @@ function timerReducer(state, action) {
                 repNumber: 0,
                 actualReps: 0,
                 isometricTime: 0,
-                exerciseIndex: 0
+                exerciseIndex: 0,
+                startTime: Date.now(), // Capture start time
+                finishTime: null
             };
         case 'PAUSE':
             return { ...state, status: 'PAUSED' };
         case 'RESUME':
             return { ...state, status: 'RUNNING' };
         case 'TICK': {
-            if (state.status !== 'RUNNING') return state;
-
             const newTime = state.timeLeft - action.payload;
 
             // Isometric Logic
@@ -66,10 +67,10 @@ function timerReducer(state, action) {
             }
 
             if (newTime > 0) {
-                return { ...state, timeLeft: newTime, isometricTime: newIsoTime };
+                return { ...state, timeLeft: newTime, isometricTime: newIsoTime, totalWorkoutTime: state.totalWorkoutTime + action.payload };
             }
 
-            return transitionPhase({ ...state, isometricTime: newIsoTime });
+            return transitionPhase({ ...state, isometricTime: newIsoTime, totalWorkoutTime: state.totalWorkoutTime + action.payload });
         }
         case 'SKIP_PHASE':
             return transitionPhase(state);
@@ -79,7 +80,7 @@ function timerReducer(state, action) {
             // Finish current set immediately.
             return finishSet(state, true); // true = forced/manual finish
 
-        case 'LOG_SET_DATA':
+        case 'LOG_SET_DATA': {
             // Payload: { weight }
             // We update the last history entry or a temporary holding area? 
             // Best to store in weightData array. WE assume this is regarding the PREVIOUS set just finished.
@@ -90,8 +91,21 @@ function timerReducer(state, action) {
             // Let's rely on UI to pass full data or we deduce?
             // Let's just append to weightData.
 
-            // Find if we already have data for this set? Update it.
-            const { exerciseId, setNumber, weight, reps } = action.payload;
+            // We assume this refers to the current set if running, or the just-completed set if resting.
+            // If in rest, setNumber has already incremented for next set (unless finished).
+            // So if REST_SET or REST_EXERCISE, we target setNumber - 1. Or current exercise index.
+
+            // However, simpler: The payload from UI should contain the exact ID and set number to update.
+            // The existing logic tries to find it.
+
+            // FIX: If we just finished a set, we want to update THAT set.
+            // Ensure payload is correct from UI.
+
+            // Optimization: If weight is 0/undefined in payload, try to inherit from previous set of same exercise?
+            // Actually, best to do inheritance at creation (finishSet).
+            // Optimization: If weight is 0/undefined in payload, try to inherit from previous set of same exercise?
+            // Actually, best to do inheritance at creation (finishSet).
+            const { exerciseId, setNumber, weight, reps, time } = action.payload;
 
             const existingIndex = state.weightData.findIndex(w =>
                 w.exerciseId === exerciseId && w.setNumber === setNumber
@@ -99,12 +113,27 @@ function timerReducer(state, action) {
 
             let newWeightData = [...state.weightData];
             if (existingIndex >= 0) {
-                newWeightData[existingIndex] = { ...newWeightData[existingIndex], weight }; // Update weight
+                // If time is undefined, keep existing time (or reps). 
+                // We typically update reps OR time depending on exercise type.
+                // But let's just spread whatever is passed.
+                newWeightData[existingIndex] = { ...newWeightData[existingIndex], weight, reps, ...(time !== undefined ? { time } : {}) };
             } else {
-                newWeightData.push({ exerciseId, setNumber, reps, weight });
+                newWeightData.push({ exerciseId, setNumber, reps, weight, time: time || 0 });
             }
 
             return { ...state, weightData: newWeightData };
+        }
+
+
+
+        case 'FINISH_WORKOUT':
+            return {
+                ...state,
+                phase: PHASE.FINISHED,
+                status: 'FINISHED',
+                timeLeft: 0,
+                finishTime: Date.now()
+            };
 
         default:
             return state;
@@ -300,13 +329,16 @@ function finishSet(state) {
     // If manualFailure, actualReps is current.
 
     // Record this set in local history (state.weightData) defaults to 0kg until updated
-    // Record this set in local history (state.weightData) defaults to 0kg until updated
+    // Find previous weight for this exercise to pre-fill
+    const previousSetData = state.weightData.filter(d => d.exerciseId === currentExercise.id).pop();
+    const suggestedWeight = previousSetData ? previousSetData.weight : 0;
+
     const setLog = {
         exerciseId: currentExercise.id,
         setNumber,
         reps: currentExercise.isIsometric ? 0 : actualReps,
         time: currentExercise.isIsometric ? state.isometricTime : 0,
-        weight: 0 // Default, user can update in rest screen
+        weight: suggestedWeight // Inherit from previous set
     };
 
     // Append to weightData
@@ -325,7 +357,8 @@ function finishSet(state) {
                 weightData: newWeightData,
                 phase: PHASE.FINISHED,
                 status: 'FINISHED',
-                timeLeft: 0
+                timeLeft: 0,
+                finishTime: Date.now()
             };
         } else {
             // Next Exercise
@@ -417,8 +450,13 @@ export const useCadenceTimer = () => {
 
     const registerFailure = useCallback(() => dispatch({ type: 'REGISTER_FAILURE' }), []);
 
-    const logSetData = useCallback((exerciseId, setNumber, reps, weight) => {
-        dispatch({ type: 'LOG_SET_DATA', payload: { exerciseId, setNumber, reps, weight } });
+    // When finishing workout, we might need to "finish" the currently running set if it wasn't done?
+    // Usually user clicks "Finish" after last set is done (in Summary view logic).
+    // But if they force finish:
+    const finishWorkout = useCallback(() => dispatch({ type: 'FINISH_WORKOUT' }), []);
+
+    const logSetData = useCallback((exerciseId, setNumber, reps, weight, time) => {
+        dispatch({ type: 'LOG_SET_DATA', payload: { exerciseId, setNumber, reps, weight, time } });
     }, []);
 
     return {
@@ -428,6 +466,7 @@ export const useCadenceTimer = () => {
         resume,
         skip,
         registerFailure,
+        finishWorkout,
         logSetData
     };
 };

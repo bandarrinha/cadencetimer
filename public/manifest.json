@@ -8,7 +8,7 @@
   "description": "Exercise Cadence Timer",
   "icons": [
     {
-      "src": "/vite.svg", 
+      "src": "/cadenceTimer.svg",
       "sizes": "512x512",
       "type": "image/svg+xml"
     }

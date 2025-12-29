@@ -23,7 +23,9 @@ function App() {
       const ex = activeWorkout.exercises.find(e => e.id === d.exerciseId);
       return {
         date,
+        workoutId: activeWorkout.id, // Save ID
         workoutName: activeWorkout.name,
+        exerciseId: d.exerciseId, // Save ID
         exerciseName: ex ? ex.name : 'Unknown',
         setNumber: d.setNumber,
         reps: d.reps,
