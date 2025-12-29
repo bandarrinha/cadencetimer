@@ -233,6 +233,27 @@ function transitionPhase(state) {
     }
 
     if (phase === PHASE.PREP || phase.includes('REST')) {
+        // Bi-Set Loop Back Logic
+        // If we are coming from REST_SET, and current exercise is the 2nd of a bi-set,
+        // we need to switch active exercise back to the 1st of the pair.
+        // NOTE: finishSet already incremented setNumber.
+        if (phase === PHASE.REST_SET) {
+            const isBiSetEnd = currentExercise.biSetId &&
+                workout.exercises[exerciseIndex - 1]?.biSetId === currentExercise.biSetId;
+            if (isBiSetEnd) {
+                return {
+                    ...state,
+                    exerciseIndex: exerciseIndex - 1,
+                    phase: PHASE.PREP,
+                    timeLeft: 5,
+                    phaseDuration: 5,
+                    // setNumber is already correct (N+1)
+                    repNumber: 0,
+                    actualReps: 0
+                };
+            }
+        }
+
         // Start flow logic
 
         // Check if Isometric Exercise
@@ -324,12 +345,7 @@ function finishSet(state) {
     const { workout, exerciseIndex, setNumber, actualReps } = state;
     const currentExercise = workout.exercises[exerciseIndex];
 
-    // Log data internally to state.weightData for immediate storage if needed?
-    // We already have actualReps updated in state.
-    // If manualFailure, actualReps is current.
-
-    // Record this set in local history (state.weightData) defaults to 0kg until updated
-    // Find previous weight for this exercise to pre-fill
+    // Log data internally
     const previousSetData = state.weightData.filter(d => d.exerciseId === currentExercise.id).pop();
     const suggestedWeight = previousSetData ? previousSetData.weight : 0;
 
@@ -338,20 +354,39 @@ function finishSet(state) {
         setNumber,
         reps: currentExercise.isIsometric ? 0 : actualReps,
         time: currentExercise.isIsometric ? state.isometricTime : 0,
-        weight: suggestedWeight // Inherit from previous set
+        weight: suggestedWeight
     };
 
-    // Append to weightData
     const newWeightData = [...state.weightData, setLog];
 
-    // Next Logic
+    // Bi-Set Logic Step 1: Check if starting a bi-set transition (Ex 1 -> Ex 2)
+    const isBiSetStart = currentExercise.biSetId &&
+        workout.exercises[exerciseIndex + 1]?.biSetId === currentExercise.biSetId;
+
+    // Bi-Set Logic Step 2: Check if ending a bi-set pair (Ex 2 -> Rest)
+    // const isBiSetEnd = currentExercise.biSetId && 
+    //                   workout.exercises[exerciseIndex - 1]?.biSetId === currentExercise.biSetId;
+
+    if (isBiSetStart) {
+        // Ex 1 Finished -> Go to Ex 2 (PREP 5s)
+        return {
+            ...state,
+            weightData: newWeightData,
+            exerciseIndex: exerciseIndex + 1,
+            phase: PHASE.PREP,
+            timeLeft: 5,
+            phaseDuration: 5,
+            setNumber: setNumber,
+            repNumber: 0,
+            actualReps: 0
+        };
+    }
+
     const isExerciseDone = setNumber >= currentExercise.sets;
 
     if (isExerciseDone) {
         if (exerciseIndex >= workout.exercises.length - 1) {
             // Workout Done
-            // TODO: Save to permanent history here or in UI?
-            // UI can detect PHASE.FINISHED and save. Use Effect.
             return {
                 ...state,
                 weightData: newWeightData,
@@ -384,6 +419,7 @@ function finishSet(state) {
         };
     }
 }
+
 
 function completeRep(state, orderList) {
     const { workout, exerciseIndex, repNumber } = state;

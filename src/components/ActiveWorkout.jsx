@@ -30,18 +30,13 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
         };
     }, []);
 
-    // Local state for inputs during rest
-    const [weightInput, setWeightInput] = useState('');
-    const [repsInput, setRepsInput] = useState('');
-
-    // Refs to avoid stale closures in effects
-    const weightInputRef = useRef(weightInput);
-    const repsInputRef = useRef(repsInput);
+    // Local state for inputs during rest (Map: { [exId]: { weight: '', reps: '' } })
+    const [inputValues, setInputValues] = useState({});
+    const inputValuesRef = useRef({}); // Ref to avoid stale closures in auto-save
 
     const [showExitConfirm, setShowExitConfirm] = useState(false);
 
-    useEffect(() => { weightInputRef.current = weightInput; }, [weightInput]);
-    useEffect(() => { repsInputRef.current = repsInput; }, [repsInput]);
+    useEffect(() => { inputValuesRef.current = inputValues; }, [inputValues]);
 
     // Start on mount
     useEffect(() => {
@@ -57,61 +52,86 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
             const p = state.phase;
             const prevP = prevPhaseRef.current;
 
-            // LEAVING Rest: Auto-save Weight & Reps
+            // LEAVING Rest: Auto-save inputs
             if (prevP === PHASE.REST_SET || prevP === PHASE.REST_EXERCISE) {
-                const wVal = parseFloat(weightInputRef.current);
-                const rVal = parseInt(repsInputRef.current);
+                // Iterate over all inputs currently being edited
+                Object.entries(inputValuesRef.current).forEach(([exId, vals]) => {
+                    const wVal = parseFloat(vals.weight);
+                    const rVal = parseInt(vals.reps);
 
-                // Update the last entry (the set just finished before this rest)
-                const lastEntry = state.weightData[state.weightData.length - 1];
-                if (lastEntry) {
-                    const finalWeight = !isNaN(wVal) ? wVal : (lastEntry.weight || 0);
-                    const finalReps = !isNaN(rVal) ? rVal : lastEntry.reps;
+                    // Find existing entry to fallback if invalid input
+                    // search by exerciseId AND setNumber (which set? The one just finished)
+                    // We assume the inputs were for the set just finished.
+                    // But which set number is that?
+                    // If we are in REST, state.setNumber is Next Set. So we want Set - 1.
+                    // BUT for REST_EXERCISE, setNumber might have reset to 1 (if we switched ex).
+                    // Actually, if we are LEAVING Rest, we are transitioning TO Prep (or something).
+                    // The `state` here is the NEW state.
+                    // If we transition Ex N (Rest) -> Ex N (Prep), setNumber increased.
+                    // If we transition Ex N (Rest) -> Ex N+1 (Prep), setNumber becomes 1.
 
-                    // Determine if we are saving Reps or Time
-                    // We need to look up current exercise ISOMETRIC status.
-                    // But 'state.exerciseIndex' might have advanced if rest is over?
-                    // No, transition happens AFTER this effect hook. This hook runs ON change.
-                    // The 'state' here is the NEW state.
-                    // If we just entered PREP (from Rest), state.exerciseIndex might be next exercise.
-                    // So we must use lastEntry.exerciseId to find exercise.
-                    const ex = workout.exercises.find(e => e.id === lastEntry.exerciseId);
-                    const isIso = ex && ex.isIsometric;
+                    // CRITICAL: We need the set number of the entries we are editing.
+                    // We can find them in weightData by checking the last entries for these IDs.
+                    const lastEntry = state.weightData.filter(w => w.exerciseId === exId).pop();
 
-                    // If Isometric, rVal is TIME. pass as 'time'. Reps should be 0 or ignored.
-                    logSetData(lastEntry.exerciseId, lastEntry.setNumber, isIso ? 0 : finalReps, finalWeight, isIso ? finalReps : 0);
-                }
+                    if (lastEntry) {
+                        const finalWeight = !isNaN(wVal) ? wVal : (lastEntry.weight || 0);
+                        const finalReps = !isNaN(rVal) ? rVal : lastEntry.reps;
+
+                        const ex = workout.exercises.find(e => e.id === exId);
+                        const isIso = ex && ex.isIsometric;
+
+                        // Save
+                        logSetData(exId, lastEntry.setNumber, isIso ? 0 : finalReps, finalWeight, isIso ? finalReps : 0);
+                    }
+                });
             }
 
             // ENTERING Rest: Pre-fill inputs
             if (p === PHASE.REST_SET || p === PHASE.REST_EXERCISE) {
-                const currentExId = workout.exercises[state.exerciseIndex].id;
-                const exerciseLogs = state.weightData.filter(w => w.exerciseId === currentExId);
+                const currentExIndex = state.exerciseIndex;
+                const currentEx = workout.exercises[currentExIndex];
 
-                // The last global entry is the set just completed
-                const lastGlobalEntry = state.weightData[state.weightData.length - 1];
+                // Identify target exercises to show inputs for
+                let targetExercises = [currentEx]; // Default: just current
 
-                let suggestedWeight = '';
-                let suggestedReps = '';
-
-                if (lastGlobalEntry) {
-                    const ex = workout.exercises.find(e => e.id === lastGlobalEntry.exerciseId);
-                    const isIso = ex && ex.isIsometric;
-
-                    suggestedWeight = lastGlobalEntry.weight || '';
-                    // If weight is 0, maybe try to find previous set to suggest?
-                    if (!suggestedWeight && exerciseLogs.length >= 2) {
-                        // Try set before this one (index - 2 because index-1 is the just finished one)
-                        suggestedWeight = exerciseLogs[exerciseLogs.length - 2].weight;
-                    }
-
-                    suggestedReps = isIso ? Math.floor(lastGlobalEntry.time) : lastGlobalEntry.reps;
+                // Check for Bi-Set End (Current is 2nd of pair)
+                // Note: In REST_SET, exerciseIndex is still at the 2nd exercise.
+                // In REST_EXERCISE, exerciseIndex is usually incremented in finishSet?
+                // Wait, my timerReducer `finishSet` for REST_EXERCISE returns `timeLeft`...
+                // AND it returns `exerciseIndex` UNCHANGED? 
+                // Let's check timerReducer logic again.
+                // "return { ... phase: REST_EXERCISE ... }" -> exerciseIndex NOT present in return (so unchanged).
+                // "transitionPhase" (Rest expired) -> THEN it increments exerciseIndex.
+                // So YES, during REST (any type), exerciseIndex points to the exercise just finished.
+                // SO:
+                if (currentEx.biSetId && workout.exercises[currentExIndex - 1]?.biSetId === currentEx.biSetId) {
+                    // It's the 2nd of a pair. Include the 1st one.
+                    targetExercises.unshift(workout.exercises[currentExIndex - 1]);
                 }
 
-                // Use setTimeout to update state
+                const newInputs = {};
+
+                targetExercises.forEach(ex => {
+                    const logs = state.weightData.filter(w => w.exerciseId === ex.id);
+                    const lastLog = logs[logs.length - 1]; // The placeholder added in finishSet
+
+                    let sWeight = '';
+                    let sReps = '';
+
+                    if (lastLog) {
+                        sWeight = lastLog.weight || '';
+                        // If weight 0, try finding previous valid set (index - 2)
+                        if (!sWeight && logs.length >= 2) {
+                            sWeight = logs[logs.length - 2].weight;
+                        }
+                        sReps = ex.isIsometric ? Math.floor(lastLog.time) : lastLog.reps;
+                    }
+                    newInputs[ex.id] = { weight: sWeight, reps: sReps };
+                });
+
                 setTimeout(() => {
-                    setWeightInput(suggestedWeight);
-                    setRepsInput(suggestedReps);
+                    setInputValues(newInputs);
                 }, 0);
             }
 
@@ -146,20 +166,28 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
     }, [state.phase, state.timeLeft, state.phaseDuration, speak, playBeep, logSetData, state.weightData, workout.exercises, state.exerciseIndex]);
 
 
-    // Manual Save Handler (onBlur or onChange)
-    const handleInputSave = () => {
-        const lastEntry = state.weightData[state.weightData.length - 1];
+    // Manual Save Handler
+    const handleInputSave = (exId, field, value) => {
+        // Update local state
+        const newInputs = { ...inputValuesRef.current, [exId]: { ...inputValuesRef.current[exId], [field]: value } };
+        setInputValues(newInputs); // Update React state for UI
+        inputValuesRef.current = newInputs; // Sync ref immediately
+
+        // Trigger Log Update
+        const vals = newInputs[exId];
+        const lastEntry = state.weightData.filter(w => w.exerciseId === exId).pop();
+
         if (lastEntry) {
-            const wVal = parseFloat(weightInputRef.current); // Use Ref to rely on latest
-            const rVal = parseInt(repsInputRef.current);
+            const wVal = parseFloat(vals.weight);
+            const rVal = parseInt(vals.reps);
 
             const finalWeight = !isNaN(wVal) ? wVal : lastEntry.weight;
             const finalReps = !isNaN(rVal) ? rVal : lastEntry.reps;
 
-            const ex = workout.exercises.find(e => e.id === lastEntry.exerciseId);
+            const ex = workout.exercises.find(e => e.id === exId);
             const isIso = ex && ex.isIsometric;
 
-            logSetData(lastEntry.exerciseId, lastEntry.setNumber, isIso ? 0 : finalReps, finalWeight, isIso ? finalReps : 0);
+            logSetData(exId, lastEntry.setNumber, isIso ? 0 : finalReps, finalWeight, isIso ? finalReps : 0);
         }
     };
 
@@ -201,6 +229,25 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
     const progressPct = state.phaseDuration > 0 ? progress * 100 : 0;
     const isResting = state.phase.includes('REST');
 
+    // Identify exercises to display in Rest
+    // Can be multiple (Bi-Set) or single
+    // We reuse logic from Effect to be safe or just use inputValues keys? 
+    // Effect runs on mount of phase. inputValues populated then.
+    // If inputValues is empty, it means effect hasn't run or something.
+    // Better to derive from state again for rendering to be instant.
+
+    // We need to render based on what we calculated in the Effect. 
+    // But Render happens before Effect if we just switched.
+    // It's safer to recalculate the list of "Active Exercises for Input".
+
+    let activeInputExercises = [currentExercise];
+    if (isResting) {
+        if (currentExercise.biSetId && workout.exercises[state.exerciseIndex - 1]?.biSetId === currentExercise.biSetId) {
+            activeInputExercises.unshift(workout.exercises[state.exerciseIndex - 1]);
+        }
+    }
+
+
     // If Summary is active, render it overlaying everything
     if (state.status === 'FINISHED') {
         return (
@@ -228,7 +275,6 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
 
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: (state.phase === PHASE.PREP || state.phase === PHASE.FINISHED) ? 'white' : 'black' }}>
 
-                {/* Header Info */}
                 {/* Header Info */}
                 <div style={{ position: 'absolute', top: 20, left: 0, right: 0, padding: '0 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
@@ -261,41 +307,56 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
 
                 {/* Rest UI with Inputs */}
                 {isResting && (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', width: '100%', maxWidth: '600px', padding: '0 20px' }}>
                         <div style={{ fontSize: '8rem', fontWeight: 900 }}>{Math.ceil(state.timeLeft)}</div>
-                        <div style={{ background: 'rgba(255,255,255,0.9)', padding: '20px', borderRadius: '16px', color: 'black', display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                <label style={{ fontSize: '1rem', marginBottom: '8px' }}>Carga (kg)</label>
-                                <NumberInput
-                                    value={weightInput}
-                                    onChange={(v) => { setWeightInput(v); handleInputSave(); }}
-                                    placeholder="0"
-                                />
-                            </div>
+                        <div style={{
+                            display: 'flex',
+                            flexDirection: activeInputExercises.length > 1 ? 'row' : 'column',
+                            gap: '12px',
+                            justifyContent: 'center',
+                            width: '100%',
+                            flexWrap: 'wrap'
+                        }}>
+                            {activeInputExercises.map(ex => (
+                                <div key={ex.id} style={{
+                                    background: 'rgba(255,255,255,0.9)',
+                                    padding: '16px',
+                                    borderRadius: '16px',
+                                    color: 'black',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '12px',
+                                    flex: 1,
+                                    minWidth: '140px'
+                                }}>
+                                    <div style={{ fontWeight: 'bold', fontSize: '0.9em', textAlign: 'center', marginBottom: '4px', borderBottom: '1px solid #ddd', paddingBottom: '4px' }}>
+                                        {ex.name}
+                                    </div>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                <label style={{ fontSize: '1rem', marginBottom: '8px' }}>
-                                    {/* Detect if PREVIOUS exercise (the one we are resting after) was Isometric */}
-                                    {(() => {
-                                        // We need the exercise corresponding to the inputs, which is the LAST entry logged.
-                                        // Or simply check currentExercise if we assume we are resting AFTER it?
-                                        // If PHASE is REST_SET, we are resting after 'currentExercise'.
-                                        // If PHASE is REST_EXERCISE, we are resting after a generic "prev" exercise. 
-                                        // Actually state.exerciseIndex points to the NEXT exercise in REST_EXERCISE phase (logic in transitionPhase: exerciseIndex + 1).
-                                        // So if REST_EXERCISE, look at index - 1.
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                        <label style={{ fontSize: '0.9rem', marginBottom: '4px' }}>Carga (kg)</label>
+                                        <NumberInput
+                                            value={inputValues[ex.id]?.weight || ''}
+                                            onChange={(v) => handleInputSave(ex.id, 'weight', v)}
+                                            placeholder="0"
+                                            compact={true}
+                                        />
+                                    </div>
 
-                                        const refIndex = state.phase === PHASE.REST_EXERCISE ? state.exerciseIndex - 1 : state.exerciseIndex;
-                                        const refEx = workout.exercises[refIndex];
-                                        return (refEx && refEx.isIsometric) ? 'Tempo (s)' : 'Reps Feitas';
-                                    })()}
-                                </label>
-                                <NumberInput
-                                    value={repsInput}
-                                    onChange={(v) => { setRepsInput(v); handleInputSave(); }}
-                                    placeholder="0"
-                                />
-                            </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                        <label style={{ fontSize: '0.9rem', marginBottom: '4px' }}>
+                                            {ex.isIsometric ? 'Tempo (s)' : 'Reps'}
+                                        </label>
+                                        <NumberInput
+                                            value={inputValues[ex.id]?.reps || ''}
+                                            onChange={(v) => handleInputSave(ex.id, 'reps', v)}
+                                            placeholder="0"
+                                            compact={true}
+                                        />
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 )}

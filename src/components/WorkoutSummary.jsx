@@ -14,13 +14,14 @@ export default function WorkoutSummary({ workout, weightData, onSave, onDiscard,
     };
 
     // Calculate Duration
-    // If finishTime isn't set (should be), default to now. 
-    // If startTime isn't set (should be), default to now (0 duration).
+    // If finishTime isn't set (should be), we can just show 00:00:00 or handle it gracefully.
+    // Date.now() inside useMemo is technically impure but often used for defaults. 
+    // However, to satisfy linter, let's use a fixed fallback or just rely on passed props.
+    // If finishTime is missing, assume 0 duration or handle elsewhere.
     const durationStr = useMemo(() => {
-        const end = finishTime || Date.now();
-        const start = startTime || end;
-        const durationMs = end - start;
-        return new Date(Math.max(0, durationMs)).toISOString().substr(11, 8); // HH:MM:SS format
+        if (!finishTime || !startTime) return "00:00:00";
+        const durationMs = finishTime - startTime;
+        return new Date(Math.max(0, durationMs)).toISOString().substr(11, 8);
     }, [startTime, finishTime]);
 
     // Load Previous History for Comparison
@@ -94,23 +95,38 @@ export default function WorkoutSummary({ workout, weightData, onSave, onDiscard,
                 </p>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {data.map((entry, idx) => {
-                        const exercise = workout.exercises.find(e => e.id === entry.exerciseId);
-                        const exName = exercise ? exercise.name : 'Unknown';
-                        const isFirst = idx === 0 || data[idx - 1].exerciseId !== entry.exerciseId;
+                    {workout.exercises.map((exercise) => {
+                        // Find all entries for this exercise, preserving their original index
+                        const entriesWithIndex = data
+                            .map((entry, idx) => ({ ...entry, originalIndex: idx }))
+                            .filter(e => e.exerciseId === exercise.id);
 
-                        const comparison = getComparison(entry);
+                        if (entriesWithIndex.length === 0) return null;
 
                         return (
-                            <SummaryRow
-                                key={idx}
-                                entry={entry}
-                                idx={idx}
-                                exerciseName={exName}
-                                isFirst={isFirst}
-                                onUpdate={updateEntry}
-                                comparison={comparison}
-                            />
+                            <div key={exercise.id}>
+                                <div style={{
+                                    fontWeight: 'bold', margin: '20px 0 10px', color: 'var(--color-primary)',
+                                    background: '#222', padding: '8px 12px', borderRadius: '4px'
+                                }}>
+                                    {exercise.name}
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    {entriesWithIndex.map((entry) => {
+                                        const comparison = getComparison(entry);
+                                        return (
+                                            <SummaryRow
+                                                key={entry.originalIndex}
+                                                entry={entry}
+                                                idx={entry.originalIndex} // Pass original index for updates
+                                                onUpdate={updateEntry}
+                                                comparison={comparison}
+                                            />
+                                        );
+                                    })}
+                                </div>
+                            </div>
                         );
                     })}
                 </div>
@@ -138,7 +154,7 @@ export default function WorkoutSummary({ workout, weightData, onSave, onDiscard,
     );
 }
 
-function SummaryRow({ entry, idx, exerciseName, isFirst, onUpdate, comparison }) {
+function SummaryRow({ entry, idx, onUpdate, comparison }) {
     const [isEditing, setIsEditing] = useState(false);
     const [tempWeight, setTempWeight] = useState(entry.weight);
     const [tempReps, setTempReps] = useState(entry.time > 0 ? entry.time : entry.reps);
@@ -151,14 +167,6 @@ function SummaryRow({ entry, idx, exerciseName, isFirst, onUpdate, comparison })
 
     return (
         <div>
-            {isFirst && (
-                <div style={{
-                    fontWeight: 'bold', margin: '20px 0 10px', color: 'var(--color-primary)',
-                    background: '#222', padding: '8px 12px', borderRadius: '4px'
-                }}>
-                    {exerciseName}
-                </div>
-            )}
             <div style={{
                 background: '#1a1a1a', padding: '12px', borderRadius: '12px',
                 display: 'grid',

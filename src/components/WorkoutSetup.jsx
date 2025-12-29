@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, Play, Download, Upload, History } from 'lucide-react';
+import { Plus, Trash2, Play, Download, Upload, History, Link, Unlink } from 'lucide-react';
 
 
 const DEFAULT_EXERCISE = {
@@ -12,7 +12,8 @@ const DEFAULT_EXERCISE = {
     isIsometric: false,
     cadence: { eccentric: 3, eccentricPause: 1, concentric: 1, concentricPause: 0 },
     restSet: 45,
-    restExercise: 60
+    restExercise: 60,
+    biSetId: null // Added for grouping
 };
 
 const DEFAULT_WORKOUT = {
@@ -24,7 +25,10 @@ const DEFAULT_WORKOUT = {
 export default function WorkoutSetup({ onStart, onViewHistory }) {
     const [workouts, setWorkouts] = useState(() => {
         const saved = localStorage.getItem('cadence_workouts');
-        return saved ? JSON.parse(saved) : [DEFAULT_WORKOUT];
+        const parsed = saved ? JSON.parse(saved) : [DEFAULT_WORKOUT];
+        // Migration: Ensure biSetId exists
+        parsed.forEach(w => w.exercises.forEach(e => { if (e.biSetId === undefined) e.biSetId = null; }));
+        return parsed;
     });
 
     const [activeWorkoutId, setActiveWorkoutId] = useState(() => {
@@ -63,7 +67,8 @@ export default function WorkoutSetup({ onStart, onViewHistory }) {
             ...base,
             id: crypto.randomUUID(),
             name: lastExercise ? `${lastExercise.name} (Copy)` : 'Novo Exercício',
-            cadence: { ...base.cadence }
+            cadence: { ...base.cadence },
+            biSetId: null // Reset biSet linking for new copy
         };
 
         updateActiveWorkout({
@@ -74,6 +79,32 @@ export default function WorkoutSetup({ onStart, onViewHistory }) {
 
     const removeExercise = (index) => {
         const newExercises = activeWorkout.exercises.filter((_, i) => i !== index);
+        updateActiveWorkout({ ...activeWorkout, exercises: newExercises });
+    };
+
+    const toggleBiSet = (index) => {
+        if (index >= activeWorkout.exercises.length - 1) return;
+
+        const newExercises = [...activeWorkout.exercises];
+        const current = newExercises[index];
+        const next = newExercises[index + 1];
+
+        // Check if already linked
+        const isLinked = current.biSetId && current.biSetId === next.biSetId;
+
+        if (isLinked) {
+            // Unlink
+            newExercises[index] = { ...current, biSetId: null };
+            newExercises[index + 1] = { ...next, biSetId: null };
+        } else {
+            // Link
+            // If current already has a biSetId (linked to prev?), we need to decide logic.
+            // Simplified: Generate new ID and assign to both.
+            // Note: This simple logic supports pairs. Chains (A-B-C) would require more logic, but user asked for "Bi-sets" (2 exercises).
+            const newId = crypto.randomUUID();
+            newExercises[index] = { ...current, biSetId: newId };
+            newExercises[index + 1] = { ...next, biSetId: newId };
+        }
         updateActiveWorkout({ ...activeWorkout, exercises: newExercises });
     };
 
@@ -160,93 +191,148 @@ export default function WorkoutSetup({ onStart, onViewHistory }) {
                 </div>
             </header>
 
-            {activeWorkout.exercises.map((ex, idx) => (
-                <div key={ex.id} style={{ background: '#1e1e1e', padding: '16px', borderRadius: '12px', marginBottom: '16px' }}>
+            {activeWorkout.exercises.map((ex, idx) => {
+                const isLinkedWithNext = idx < activeWorkout.exercises.length - 1 && ex.biSetId && ex.biSetId === activeWorkout.exercises[idx + 1].biSetId;
+                const isLinkedWithPrev = idx > 0 && ex.biSetId && ex.biSetId === activeWorkout.exercises[idx - 1].biSetId;
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '70%' }}>
-                            <input
-                                value={ex.name}
-                                onChange={(e) => updateExercise(idx, 'name', e.target.value)}
-                                style={{ background: 'transparent', border: 'none', borderBottom: '1px solid #444', color: 'white', fontSize: '1.2em', width: '100%', padding: '4px 0' }}
-                                placeholder="Nome do Exercício"
-                            />
-                        </div>
-                        <button onClick={() => removeExercise(idx)} style={{ background: 'transparent', color: '#ff4d4d', padding: 0 }}><Trash2 /></button>
-                    </div>
+                return (
+                    <div key={ex.id}>
+                        <div style={{
+                            background: '#1e1e1e',
+                            padding: '16px',
+                            borderRadius: '12px',
+                            marginBottom: isLinkedWithNext ? '0' : '16px',
+                            borderBottomLeftRadius: isLinkedWithNext ? '0' : '12px',
+                            borderBottomRightRadius: isLinkedWithNext ? '0' : '12px',
+                            borderTopLeftRadius: isLinkedWithPrev ? '0' : '12px',
+                            borderTopRightRadius: isLinkedWithPrev ? '0' : '12px',
+                            borderLeft: isLinkedWithPrev || isLinkedWithNext ? '4px solid #ff9800' : 'none',
+                            position: 'relative'
+                        }}>
+                            {/* Bi-Set Indicator Label */}
+                            {(isLinkedWithNext && !isLinkedWithPrev) && (
+                                <div style={{ position: 'absolute', top: '-10px', right: '10px', background: '#ff9800', color: 'black', fontSize: '0.7em', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>
+                                    BI-SET INÍCIO
+                                </div>
+                            )}
+                            {(isLinkedWithPrev && !isLinkedWithNext) && (
+                                <div style={{ position: 'absolute', bottom: '-10px', right: '10px', background: '#ff9800', color: 'black', fontSize: '0.7em', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', zIndex: 1 }}>
+                                    BI-SET FIM
+                                </div>
+                            )}
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                            <label style={{ fontSize: '0.9em', color: '#ccc', marginBottom: '6px' }}>Séries</label>
-                            <input
-                                type="number"
-                                value={ex.sets}
-                                onChange={(e) => updateExercise(idx, 'sets', parseInt(e.target.value) || 0)}
-                                style={inputStyle}
-                            />
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                            <label style={{ fontSize: '0.9em', color: '#ccc', marginBottom: '6px' }}>
-                                {ex.isIsometric ? 'Tempo (s)' : 'Reps Alvo'}
-                            </label>
-                            <input
-                                type="number"
-                                value={ex.reps}
-                                onChange={(e) => updateExercise(idx, 'reps', parseInt(e.target.value) || 0)}
-                                style={inputStyle}
-                            />
-                        </div>
-                    </div>
 
-                    <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9em', background: '#2a2a2a', padding: '6px 12px', borderRadius: '20px' }}>
-                            <input type="checkbox" checked={ex.failureMode} onChange={(e) => updateExercise(idx, 'failureMode', e.target.checked)} />
-                            Até a Falha?
-                        </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9em', background: '#2a2a2a', padding: '6px 12px', borderRadius: '20px' }}>
-                            <input type="checkbox" checked={ex.startConcentric} onChange={(e) => updateExercise(idx, 'startConcentric', e.target.checked)} disabled={ex.isIsometric} />
-                            Começar Concêntrica
-                        </label>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9em', background: '#2a2a2a', padding: '6px 12px', borderRadius: '20px' }}>
-                            <input type="checkbox" checked={ex.isIsometric} onChange={(e) => updateExercise(idx, 'isIsometric', e.target.checked)} />
-                            Isometria
-                        </label>
-                    </div>
-
-                    {!ex.isIsometric && (
-                        <>
-                            <h4 style={{ margin: '0 0 8px', color: '#888', fontSize: '0.9em', textTransform: 'uppercase', letterSpacing: '1px' }}>Cadência (Segundos)</h4>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '4px', textAlign: 'center', background: '#121212', padding: '8px', borderRadius: '8px' }}>
-                                {['eccentric', 'eccentricPause', 'concentric', 'concentricPause'].map(key => (
-                                    <div key={key} className="cadence-input">
-                                        <label style={{ fontSize: '0.8em', color: key.includes('eccentric') ? 'var(--color-eccentric)' : key.includes('concentric') ? 'var(--color-concentric)' : 'var(--color-isometric)' }}>
-                                            {key === 'eccentric' ? 'Desce' : key === 'concentric' ? 'Sobe' : 'Pausa'}
-                                        </label>
-                                        <input
-                                            type="number"
-                                            value={ex.cadence[key]}
-                                            onChange={(e) => updateCadence(idx, key, e.target.value)}
-                                            style={inputStyle}
-                                        />
-                                    </div>
-                                ))}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '70%' }}>
+                                    <input
+                                        value={ex.name}
+                                        onChange={(e) => updateExercise(idx, 'name', e.target.value)}
+                                        style={{ background: 'transparent', border: 'none', borderBottom: '1px solid #444', color: 'white', fontSize: '1.2em', width: '100%', padding: '4px 0' }}
+                                        placeholder="Nome do Exercício"
+                                    />
+                                </div>
+                                <button onClick={() => removeExercise(idx)} style={{ background: 'transparent', color: '#ff4d4d', padding: 0 }}><Trash2 /></button>
                             </div>
-                        </>
-                    )}
 
-                    <h4 style={{ margin: '16px 0 8px', color: '#888', fontSize: '0.9em', textTransform: 'uppercase', letterSpacing: '1px' }}>Intervalos (Segundos)</h4>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                        <label style={{ fontSize: '0.9em', color: '#ccc' }}>
-                            Entre Séries
-                            <input type="number" value={ex.restSet} onChange={(e) => updateExercise(idx, 'restSet', parseInt(e.target.value))} style={inputStyle} />
-                        </label>
-                        <label style={{ fontSize: '0.9em', color: '#ccc' }}>
-                            Entre Exercícios
-                            <input type="number" value={ex.restExercise} onChange={(e) => updateExercise(idx, 'restExercise', parseInt(e.target.value))} style={inputStyle} />
-                        </label>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                    <label style={{ fontSize: '0.9em', color: '#ccc', marginBottom: '6px' }}>Séries</label>
+                                    <input
+                                        type="number"
+                                        value={ex.sets}
+                                        onChange={(e) => updateExercise(idx, 'sets', parseInt(e.target.value) || 0)}
+                                        style={inputStyle}
+                                    />
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                    <label style={{ fontSize: '0.9em', color: '#ccc', marginBottom: '6px' }}>
+                                        {ex.isIsometric ? 'Tempo (s)' : 'Reps Alvo'}
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={ex.reps}
+                                        onChange={(e) => updateExercise(idx, 'reps', parseInt(e.target.value) || 0)}
+                                        style={inputStyle}
+                                    />
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9em', background: '#2a2a2a', padding: '6px 12px', borderRadius: '20px' }}>
+                                    <input type="checkbox" checked={ex.failureMode} onChange={(e) => updateExercise(idx, 'failureMode', e.target.checked)} />
+                                    Até a Falha?
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9em', background: '#2a2a2a', padding: '6px 12px', borderRadius: '20px' }}>
+                                    <input type="checkbox" checked={ex.startConcentric} onChange={(e) => updateExercise(idx, 'startConcentric', e.target.checked)} disabled={ex.isIsometric} />
+                                    Começar Concêntrica
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9em', background: '#2a2a2a', padding: '6px 12px', borderRadius: '20px' }}>
+                                    <input type="checkbox" checked={ex.isIsometric} onChange={(e) => updateExercise(idx, 'isIsometric', e.target.checked)} />
+                                    Isometria
+                                </label>
+                            </div>
+
+                            {!ex.isIsometric && (
+                                <>
+                                    <h4 style={{ margin: '0 0 8px', color: '#888', fontSize: '0.9em', textTransform: 'uppercase', letterSpacing: '1px' }}>Cadência (Segundos)</h4>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '4px', textAlign: 'center', background: '#121212', padding: '8px', borderRadius: '8px' }}>
+                                        {['eccentric', 'eccentricPause', 'concentric', 'concentricPause'].map(key => (
+                                            <div key={key} className="cadence-input">
+                                                <label style={{ fontSize: '0.8em', color: key.includes('eccentric') ? 'var(--color-eccentric)' : key.includes('concentric') ? 'var(--color-concentric)' : 'var(--color-isometric)' }}>
+                                                    {key === 'eccentric' ? 'Desce' : key === 'concentric' ? 'Sobe' : 'Pausa'}
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    value={ex.cadence[key]}
+                                                    onChange={(e) => updateCadence(idx, key, e.target.value)}
+                                                    style={inputStyle}
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+
+                            <h4 style={{ margin: '16px 0 8px', color: '#888', fontSize: '0.9em', textTransform: 'uppercase', letterSpacing: '1px' }}>Intervalos (Segundos)</h4>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                                <label style={{ fontSize: '0.9em', color: '#ccc' }}>
+                                    Entre Séries
+                                    <input type="number" value={ex.restSet} onChange={(e) => updateExercise(idx, 'restSet', parseInt(e.target.value))} style={inputStyle} />
+                                </label>
+                                <label style={{ fontSize: '0.9em', color: '#ccc' }}>
+                                    Entre Exercícios
+                                    <input type="number" value={ex.restExercise} onChange={(e) => updateExercise(idx, 'restExercise', parseInt(e.target.value))} style={inputStyle} />
+                                </label>
+                            </div>
+                        </div>
+
+                        {/* Link Button between exercises */}
+                        {idx < activeWorkout.exercises.length - 1 && (
+                            <div style={{ display: 'flex', justifyContent: 'center', margin: isLinkedWithNext ? '-10px 0' : '-8px 0 8px', zIndex: 10, position: 'relative' }}>
+                                <button
+                                    onClick={() => toggleBiSet(idx)}
+                                    style={{
+                                        background: isLinkedWithNext ? '#ff9800' : '#333',
+                                        color: isLinkedWithNext ? 'black' : '#888',
+                                        border: 'none',
+                                        borderRadius: '50%',
+                                        width: '32px',
+                                        height: '32px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        boxShadow: '0 2px 4px rgba(0,0,0,0.5)',
+                                        cursor: 'pointer'
+                                    }}
+                                    title={isLinkedWithNext ? "Desfazer Bi-Set" : "Criar Bi-Set"}
+                                >
+                                    {isLinkedWithNext ? <Unlink size={16} /> : <Link size={16} />}
+                                </button>
+                            </div>
+                        )}
                     </div>
-                </div>
-            ))}
+                );
+            })}
 
             <button onClick={addExercise} style={{ width: '100%', padding: '16px', border: '2px dashed #444', background: 'transparent', color: '#888', borderRadius: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
                 <Plus /> Adicionar Exercício

@@ -8,8 +8,10 @@ Uma aplicação web para treinos de musculação com controle de cadência, proj
 *   **Cronômetro Global:** Visualização do tempo total de treino durante a execução.
 *   **Edição em Tempo Real:** Ajuste carga e repetições (ou tempo de isometria) durante o descanso.
 *   **Suporte a Isometria:** Inputs adaptativos que registram "Tempo (s)" para exercícios isométricos e "Reps" para dinâmicos.
+*   **Bi-Sets (Supersets):** Agrupe dois exercícios para execução sequencial (Ex1 -> Prep -> Ex2 -> Descanso) com log unificado.
 *   **Wake Lock:** Mantém a tela do celular ligada durante o treino.
 *   **Resumo de Treino Detalhado:** Tela de finalização com:
+    *   **Agrupamento por Exercício:** Séries organizadas por exercício para melhor visualização, mesmo em Bi-sets.
     *   Comparativo com o treino anterior (indicadores de performance).
     *   Edição inline compacta e intuitiva.
     *   Cálculo automático de duração total.

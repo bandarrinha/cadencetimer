@@ -95,7 +95,7 @@ describe('ActiveWorkout UI Refinements', () => {
         render(<ActiveWorkout workout={mockWorkout} onExit={vi.fn()} onFinishWorkout={vi.fn()} />);
 
         expect(screen.getByText('Tempo (s)')).toBeInTheDocument();
-        expect(screen.queryByText('Reps Feitas')).not.toBeInTheDocument();
+        expect(screen.queryByText('Reps')).not.toBeInTheDocument();
     });
 
     it('shows "Reps Feitas" input label for Regular exercise during Rest', () => {
@@ -109,7 +109,7 @@ describe('ActiveWorkout UI Refinements', () => {
 
         render(<ActiveWorkout workout={mockWorkout} onExit={vi.fn()} onFinishWorkout={vi.fn()} />);
 
-        expect(screen.getByText('Reps Feitas')).toBeInTheDocument();
+        expect(screen.getByText('Reps')).toBeInTheDocument();
         expect(screen.queryByText('Tempo (s)')).not.toBeInTheDocument();
     });
 });
