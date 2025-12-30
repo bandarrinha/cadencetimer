@@ -129,6 +129,20 @@ export default function WorkoutSetup({ onStart, onViewHistory }) {
         setActiveWorkoutId(newId);
     };
 
+    const deleteWorkout = () => {
+        if (workouts.length <= 1) {
+            alert("Você precisa manter pelo menos um treino. Edite o existente ou crie um novo antes de excluir.");
+            return;
+        }
+
+        if (confirm(`Tem certeza que deseja excluir o treino "${activeWorkout.name}"? Essa ação não pode ser desfeita.`)) {
+            const newWorkouts = workouts.filter(w => w.id !== activeWorkoutId);
+            setWorkouts(newWorkouts);
+            // Select the previous one or the first one
+            setActiveWorkoutId(newWorkouts[0].id);
+        }
+    };
+
     // Import/Export
     const exportData = () => {
         const data = {
@@ -150,12 +164,37 @@ export default function WorkoutSetup({ onStart, onViewHistory }) {
         reader.onload = (ev) => {
             try {
                 const data = JSON.parse(ev.target.result);
-                if (data.workouts) localStorage.setItem('cadence_workouts', JSON.stringify(data.workouts));
-                if (data.history) localStorage.setItem('cadence_history', JSON.stringify(data.history));
+
+                // Validation: Check if it looks like a valid backup
+                if (!data.workouts && !data.history) {
+                    throw new Error("Arquivo inválido. O JSON não contém dados de treinos ou histórico.");
+                }
+
+                if (data.workouts) {
+                    // Ensure biSetId presence for compatibility
+                    data.workouts.forEach(w => {
+                        if (w.exercises) {
+                            w.exercises.forEach(ex => {
+                                if (ex.biSetId === undefined) ex.biSetId = null;
+                            });
+                        }
+                    });
+                    localStorage.setItem('cadence_workouts', JSON.stringify(data.workouts));
+                }
+
+                if (data.history) {
+                    localStorage.setItem('cadence_history', JSON.stringify(data.history));
+                }
+
                 alert('Dados importados com sucesso! A página será recarregada.');
                 window.location.reload();
             } catch (err) {
                 alert('Erro ao importar arquivo: ' + err.message);
+            } finally {
+                // Reset input to allow re-selecting the same file if needed
+                if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                }
             }
         };
         reader.readAsText(file);
@@ -166,14 +205,23 @@ export default function WorkoutSetup({ onStart, onViewHistory }) {
 
             <header style={{ marginBottom: '20px', background: '#1e1e1e', padding: '16px', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <select
-                        value={activeWorkoutId}
-                        onChange={(e) => setActiveWorkoutId(e.target.value)}
-                        style={{ padding: '8px', borderRadius: '8px', background: '#333', color: 'white', border: 'none', fontSize: '1.1em', flex: 1, marginRight: '8px' }}
-                    >
-                        {workouts.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-                    </select>
-                    <button onClick={createWorkout} style={{ padding: '8px 12px' }}><Plus size={18} /></button>
+                    <div style={{ flex: 1, display: 'flex', gap: '8px', marginRight: '8px' }}>
+                        <select
+                            value={activeWorkoutId}
+                            onChange={(e) => setActiveWorkoutId(e.target.value)}
+                            style={{ padding: '8px', borderRadius: '8px', background: '#333', color: 'white', border: 'none', fontSize: '1.1em', width: '100%' }}
+                        >
+                            {workouts.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                        </select>
+                    </div>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                        <button onClick={createWorkout} style={{ padding: '8px 12px', background: '#333', color: 'white', borderRadius: '6px' }} title="Novo Treino">
+                            <Plus size={18} />
+                        </button>
+                        <button onClick={deleteWorkout} style={{ padding: '8px 12px', background: '#333', color: '#ff4d4d', borderRadius: '6px' }} title="Excluir Treino Atual">
+                            <Trash2 size={18} />
+                        </button>
+                    </div>
                 </div>
 
                 <div style={{ display: 'flex', gap: '10px' }}>
