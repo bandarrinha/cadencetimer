@@ -11,11 +11,11 @@ Uma aplicação web para treinos de musculação com controle de cadência, proj
 *   **Bi-Sets (Supersets):** Agrupe dois exercícios para execução sequencial (Ex1 -> Prep -> Ex2 -> Descanso) com log unificado.
 *   **Wake Lock:** Mantém a tela do celular ligada durante o treino.
 *   **Resumo de Treino Detalhado:** Tela de finalização com:
-    *   **Agrupamento por Exercício:** Séries organizadas por exercício para melhor visualização, mesmo em Bi-sets.
+    *   **Agrupamento Inteligente:** Séries organizadas por Bi-Set e por Exercício, evitando duplicação e confusão visual.
     *   Comparativo com o treino anterior (indicadores de performance).
     *   Edição inline compacta e intuitiva.
     *   Cálculo automático de duração total.
-*   **Histórico:** Registro detalhado de treinos com possibilidade de edição posterior.
+*   **Histórico:** Registro detalhado de treinos com visualização agrupada por Bi-Sets e possibilidade de edição posterior.
 *   **Importar/Exportar:** Backup e restauração de dados (treinos e histórico) via arquivo JSON.
 *   **Inputs Inteligentes:** Botões de + e - para facilitar a entrada de dados.
 

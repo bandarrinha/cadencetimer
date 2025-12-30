@@ -128,4 +128,33 @@ describe('WorkoutSummary', () => {
         // Ensure standard weight text is there
         expect(screen.getByText('50')).toBeInTheDocument();
     });
+    it('renders bi-set grouping', () => {
+        const biSetWorkout = {
+            id: 'w2',
+            name: 'BiSet Workout',
+            exercises: [
+                { id: 'e1', name: 'Ex 1', biSetId: 'g1' },
+                { id: 'e2', name: 'Ex 2', biSetId: 'g1' }
+            ]
+        };
+        const biSetData = [
+            { exerciseId: 'e1', setNumber: 1, weight: 10, reps: 10 },
+            { exerciseId: 'e2', setNumber: 1, weight: 10, reps: 10 }
+        ];
+
+        render(
+            <WorkoutSummary
+                workout={biSetWorkout}
+                weightData={biSetData}
+                onSave={vi.fn()}
+                onDiscard={vi.fn()}
+            />
+        );
+
+        // Check for Bi-Set Label
+        expect(screen.getByText('BI-SET')).toBeInTheDocument();
+        // Check for both exercises
+        expect(screen.getByText('Ex 1')).toBeInTheDocument();
+        expect(screen.getByText('Ex 2')).toBeInTheDocument();
+    });
 });

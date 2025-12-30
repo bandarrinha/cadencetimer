@@ -56,13 +56,8 @@ export default function WorkoutHistory({ onBack }) {
         const dateStr = new Date(entry.date).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' });
         const key = `${dateStr} - ${entry.workoutName}`;
 
-        if (!acc[key]) acc[key] = { dateWorkout: key, exercises: {} };
-
-        if (!acc[key].exercises[entry.exerciseName]) {
-            acc[key].exercises[entry.exerciseName] = [];
-        }
-
-        acc[key].exercises[entry.exerciseName].push(entry);
+        if (!acc[key]) acc[key] = { dateWorkout: key, entries: [] };
+        acc[key].entries.push(entry);
         return acc;
     }, {});
 
@@ -78,115 +73,179 @@ export default function WorkoutHistory({ onBack }) {
 
             {sortedSessions.length === 0 && <p style={{ opacity: 0.5, textAlign: 'center' }}>Nenhum treino registrado.</p>}
 
-            {sortedSessions.map((session, sIdx) => (
-                <div key={sIdx} style={{ marginBottom: '32px' }}>
-                    <h3 style={{
-                        borderBottom: '2px solid var(--color-primary)',
-                        paddingBottom: '8px',
-                        marginBottom: '16px',
-                        color: 'white',
-                        textTransform: 'uppercase',
-                        letterSpacing: '1px',
-                        fontSize: '1em'
-                    }}>
-                        {session.dateWorkout}
-                    </h3>
+            {sortedSessions.map((session, sIdx) => {
+                // Group sequential entries
+                const entryGroups = [];
+                let currentGroup = null;
 
-                    <div style={{ display: 'grid', gap: '16px' }}>
-                        {Object.keys(session.exercises).map((exName, eIdx) => (
-                            <div key={eIdx} style={{ background: '#1e1e1e', borderRadius: '12px', overflow: 'hidden' }}>
-                                <div style={{ background: '#333', padding: '10px 16px', fontWeight: 'bold' }}>
-                                    {exName}
-                                </div>
-                                <div style={{ padding: '12px' }}>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '30px 1fr 1fr auto', fontSize: '0.8em', opacity: 0.6, marginBottom: '8px', gap: '4px' }}>
-                                        <span>SÉRIE</span>
-                                        <span style={{ textAlign: 'center' }}>REALIZADO</span>
-                                        <span style={{ textAlign: 'center' }}>CARGA</span>
-                                        <span></span>
-                                    </div>
-                                    {session.exercises[exName].map((set, stIdx) => {
-                                        const isEditing = editingIndex === set.originalIndex;
+                session.entries.forEach(entry => {
+                    // Use biSetId if present (check for null/undefined to allow 0), else exerciseId
+                    const hasBiSet = entry.biSetId !== undefined && entry.biSetId !== null;
+                    const key = hasBiSet ? entry.biSetId : (entry.exerciseId || entry.exerciseName);
 
-                                        return (
-                                            <div key={stIdx} style={{
-                                                display: 'grid',
-                                                gridTemplateColumns: isEditing ? '30px 1fr auto' : '30px 1fr 1fr auto',
-                                                alignItems: 'center',
-                                                padding: '8px 0',
-                                                borderBottom: '1px solid #2a2a2a',
-                                                gap: '4px'
+                    if (!currentGroup || currentGroup.key !== key) {
+                        currentGroup = {
+                            key,
+                            isBiSet: hasBiSet,
+                            entries: []
+                        };
+                        entryGroups.push(currentGroup);
+                    }
+                    currentGroup.entries.push(entry);
+                });
+
+                return (
+                    <div key={sIdx} style={{ marginBottom: '32px' }}>
+                        <h3 style={{
+                            borderBottom: '2px solid var(--color-primary)',
+                            paddingBottom: '8px',
+                            marginBottom: '16px',
+                            color: 'white',
+                            textTransform: 'uppercase',
+                            letterSpacing: '1px',
+                            fontSize: '1em'
+                        }}>
+                            {session.dateWorkout}
+                        </h3>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                            {entryGroups.map((group, gIdx) => {
+                                // Inside a group (BiSet or Single), we cluster by Exercise Name (or ID) for display
+                                // Example BiSet: A1, B1, A2, B2 -> { A: [A1, A2], B: [B1, B2] }
+                                // We want to preserve checking order? Usually Ex A comes first.
+                                const exercisesInGroup = {};
+                                const exOrder = [];
+
+                                group.entries.forEach(e => {
+                                    const id = e.exerciseId || e.exerciseName;
+                                    if (!exercisesInGroup[id]) {
+                                        exercisesInGroup[id] = { name: e.exerciseName, sets: [] };
+                                        exOrder.push(id);
+                                    }
+                                    exercisesInGroup[id].sets.push(e);
+                                });
+
+                                return (
+                                    <div key={gIdx} style={{
+                                        border: group.isBiSet ? '1px solid #ff9800' : 'none',
+                                        borderRadius: '12px',
+                                        padding: group.isBiSet ? '16px' : '0',
+                                        position: 'relative',
+                                        marginTop: group.isBiSet ? '8px' : '0'
+                                    }}>
+                                        {group.isBiSet && (
+                                            <div style={{
+                                                position: 'absolute', top: '-10px', left: '16px',
+                                                background: '#ff9800', color: 'black', fontSize: '0.7em',
+                                                padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold'
                                             }}>
-                                                <span>#{set.setNumber}</span>
+                                                BI-SET
+                                            </div>
+                                        )}
 
-                                                {isEditing ? (
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                            <span style={{ fontSize: '0.8em', color: '#888', width: '40px', textAlign: 'right' }}>
-                                                                {editValues.time > 0 ? 'Seg' : 'Reps'}
-                                                            </span>
-                                                            <NumberInput
-                                                                value={editValues.time > 0 ? editValues.time : editValues.reps}
-                                                                onChange={(v) => setEditValues(prev => ({ ...prev, [editValues.time > 0 ? 'time' : 'reps']: v }))}
-                                                                compact={true}
-                                                            />
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                            {exOrder.map(exId => {
+                                                const exData = exercisesInGroup[exId];
+                                                return (
+                                                    <div key={exId} style={{ background: '#1e1e1e', borderRadius: '12px', overflow: 'hidden' }}>
+                                                        <div style={{ background: '#333', padding: '10px 16px', fontWeight: 'bold' }}>
+                                                            {exData.name}
                                                         </div>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                            <span style={{ fontSize: '0.8em', color: '#888', width: '40px', textAlign: 'right' }}>
-                                                                Kg
-                                                            </span>
-                                                            <NumberInput
-                                                                value={editValues.weight}
-                                                                onChange={(v) => setEditValues(prev => ({ ...prev, weight: v }))}
-                                                                compact={true}
-                                                            />
+                                                        <div style={{ padding: '12px' }}>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: '30px 1fr 1fr auto', fontSize: '0.8em', opacity: 0.6, marginBottom: '8px', gap: '4px' }}>
+                                                                <span>#</span>
+                                                                <span style={{ textAlign: 'center' }}>REALIZADO</span>
+                                                                <span style={{ textAlign: 'center' }}>CARGA</span>
+                                                                <span></span>
+                                                            </div>
+                                                            {exData.sets.map((set, stIdx) => {
+                                                                const isEditing = editingIndex === set.originalIndex;
+
+                                                                return (
+                                                                    <div key={stIdx} style={{
+                                                                        display: 'grid',
+                                                                        gridTemplateColumns: isEditing ? '30px 1fr auto' : '30px 1fr 1fr auto',
+                                                                        alignItems: 'center',
+                                                                        padding: '8px 0',
+                                                                        borderBottom: '1px solid #2a2a2a',
+                                                                        gap: '4px'
+                                                                    }}>
+                                                                        <span>{set.setNumber}</span>
+
+                                                                        {isEditing ? (
+                                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
+                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                                    <span style={{ fontSize: '0.8em', color: '#888', width: '40px', textAlign: 'right' }}>
+                                                                                        {editValues.time > 0 ? 'Seg' : 'Reps'}
+                                                                                    </span>
+                                                                                    <NumberInput
+                                                                                        value={editValues.time > 0 ? editValues.time : editValues.reps}
+                                                                                        onChange={(v) => setEditValues(prev => ({ ...prev, [editValues.time > 0 ? 'time' : 'reps']: v }))}
+                                                                                        compact={true}
+                                                                                    />
+                                                                                </div>
+                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                                    <span style={{ fontSize: '0.8em', color: '#888', width: '40px', textAlign: 'right' }}>
+                                                                                        Kg
+                                                                                    </span>
+                                                                                    <NumberInput
+                                                                                        value={editValues.weight}
+                                                                                        onChange={(v) => setEditValues(prev => ({ ...prev, weight: v }))}
+                                                                                        compact={true}
+                                                                                    />
+                                                                                </div>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <>
+                                                                                <div style={{ textAlign: 'center', fontWeight: 'bold', color: 'var(--color-primary)' }}>
+                                                                                    {set.time !== undefined && set.time > 0 ? `${Math.floor(set.time)}s` : set.reps}
+                                                                                </div>
+                                                                                <div style={{ textAlign: 'center' }}>
+                                                                                    {`${set.weight || '-'} kg`}
+                                                                                </div>
+                                                                            </>
+                                                                        )}
+
+                                                                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                                                                            {isEditing ? (
+                                                                                <>
+                                                                                    <button
+                                                                                        onClick={() => saveEdit(set.originalIndex)}
+                                                                                        style={{ padding: '8px', background: 'var(--color-primary)', color: 'black', borderRadius: '4px' }}
+                                                                                    >
+                                                                                        <Save size={20} />
+                                                                                    </button>
+                                                                                    <button
+                                                                                        onClick={cancelEdit}
+                                                                                        style={{ padding: '8px', background: '#333', color: 'white', borderRadius: '4px' }}
+                                                                                    >
+                                                                                        <X size={20} />
+                                                                                    </button>
+                                                                                </>
+                                                                            ) : (
+                                                                                <button
+                                                                                    onClick={() => startEdit(set, set.originalIndex)}
+                                                                                    style={{ padding: '4px', background: 'transparent', color: '#666' }}
+                                                                                >
+                                                                                    <Edit2 size={16} />
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
                                                         </div>
                                                     </div>
-                                                ) : (
-                                                    <>
-                                                        <div style={{ textAlign: 'center', fontWeight: 'bold', color: 'var(--color-primary)' }}>
-                                                            {set.time !== undefined && set.time > 0 ? `${Math.floor(set.time)}s` : set.reps}
-                                                        </div>
-                                                        <div style={{ textAlign: 'center' }}>
-                                                            {`${set.weight || '-'} kg`}
-                                                        </div>
-                                                    </>
-                                                )}
-
-                                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-                                                    {isEditing ? (
-                                                        <>
-                                                            <button
-                                                                onClick={() => saveEdit(set.originalIndex)}
-                                                                style={{ padding: '8px', background: 'var(--color-primary)', color: 'black', borderRadius: '4px' }}
-                                                            >
-                                                                <Save size={20} />
-                                                            </button>
-                                                            <button
-                                                                onClick={cancelEdit}
-                                                                style={{ padding: '8px', background: '#333', color: 'white', borderRadius: '4px' }}
-                                                            >
-                                                                <X size={20} />
-                                                            </button>
-                                                        </>
-                                                    ) : (
-                                                        <button
-                                                            onClick={() => startEdit(set, set.originalIndex)}
-                                                            style={{ padding: '4px', background: 'transparent', color: '#666' }}
-                                                        >
-                                                            <Edit2 size={16} />
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        ))}
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
-                </div>
-            ))}
+                );
+            })}
         </div>
     );
 }

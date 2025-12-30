@@ -107,9 +107,19 @@ function timerReducer(state, action) {
             // Actually, best to do inheritance at creation (finishSet).
             const { exerciseId, setNumber, weight, reps, time } = action.payload;
 
-            const existingIndex = state.weightData.findIndex(w =>
-                w.exerciseId === exerciseId && w.setNumber === setNumber
-            );
+            // Use findLastIndex to ensure we update the MOST RECENT entry for this exercise/set combo.
+            // This is critical when the same exerciseId appears multiple times in the workout (e.g. repeated block or Bi-Sets).
+            // We want to edit the one we just added/are processing, which is at the end of the array.
+            // Use reverse lookup to ensure we update the MOST RECENT entry for this exercise/set combo.
+            // This is critical when the same exerciseId appears multiple times in the workout.
+            let existingIndex = -1;
+            for (let i = state.weightData.length - 1; i >= 0; i--) {
+                const w = state.weightData[i];
+                if (w.exerciseId === exerciseId && w.setNumber === setNumber) {
+                    existingIndex = i;
+                    break;
+                }
+            }
 
             let newWeightData = [...state.weightData];
             if (existingIndex >= 0) {
@@ -118,7 +128,16 @@ function timerReducer(state, action) {
                 // But let's just spread whatever is passed.
                 newWeightData[existingIndex] = { ...newWeightData[existingIndex], weight, reps, ...(time !== undefined ? { time } : {}) };
             } else {
-                newWeightData.push({ exerciseId, setNumber, reps, weight, time: time || 0 });
+                // Look up biSetId from workout to be safe
+                const exDef = state.workout.exercises.find(e => e.id === exerciseId);
+                newWeightData.push({
+                    exerciseId,
+                    setNumber,
+                    reps,
+                    weight,
+                    time: time || 0,
+                    biSetId: exDef ? exDef.biSetId : null
+                });
             }
 
             return { ...state, weightData: newWeightData };
@@ -139,59 +158,6 @@ function timerReducer(state, action) {
             return state;
     }
 }
-
-// Helper to determine next phase based on config
-function getNextPhase(phase, cadence, startConcentric) {
-    // Standard: Prep -> Eccentric -> Bottom -> Concentric -> Top -> (Rep Complete)
-    // Inverted: Prep -> Concentric -> Top -> Eccentric -> Bottom -> (Rep Complete)
-
-    // We treat "Rep Complete" as a transition loop back to start phase
-
-    const isStandard = !startConcentric;
-
-    switch (phase) {
-        case PHASE.PREP:
-            if (isStandard) return getPhaseOrNext(PHASE.ECCENTRIC, cadence);
-            return getPhaseOrNext(PHASE.CONCENTRIC, cadence);
-
-        case PHASE.ECCENTRIC:
-            return getPhaseOrNext(PHASE.BOTTOM_HOLD, cadence,
-                isStandard ? PHASE.CONCENTRIC : 'REP_COMPLETE'); // If standard, go to concentric. If inverted, rep done.
-
-        case PHASE.BOTTOM_HOLD:
-            return getPhaseOrNext(isStandard ? PHASE.CONCENTRIC : 'REP_COMPLETE', cadence);
-
-        case PHASE.CONCENTRIC:
-            return getPhaseOrNext(PHASE.TOP_HOLD, cadence,
-                isStandard ? 'REP_COMPLETE' : PHASE.ECCENTRIC);
-
-        case PHASE.TOP_HOLD:
-            return getPhaseOrNext(isStandard ? 'REP_COMPLETE' : PHASE.ECCENTRIC, cadence);
-
-        default:
-            return null;
-    }
-}
-
-// Logic to skip 0s phases. Returns { phase, duration }
-// nextPhaseName: The desired phase.
-// nextCylePhase: If desired phase is 0s, what's after that? (Recursive)
-// Actually we can just hardcode the flow map.
-function getPhaseOrNext(targetPhase, cadence, nextFallbackTarget) {
-    if (targetPhase === 'REP_COMPLETE') return { phase: 'REP_COMPLETE' };
-
-    // Map phase to cadence key
-    let duration = 0;
-    let nextPossible = null;
-    let afterNext = null;
-
-    // This recursive jumping is tricky. Let's simplify.
-    // We expect the calling function to handle "if duration 0, call again".
-
-    // Better: Helper that checks duration and returns if > 0.
-    return { phase: targetPhase }; // Defer check to state machine transition to solve recursion.
-}
-
 
 function transitionPhase(state) {
     const { workout, exerciseIndex, phase } = state;
@@ -354,7 +320,8 @@ function finishSet(state) {
         setNumber,
         reps: currentExercise.isIsometric ? 0 : actualReps,
         time: currentExercise.isIsometric ? state.isometricTime : 0,
-        weight: suggestedWeight
+        weight: suggestedWeight,
+        biSetId: currentExercise.biSetId || null
     };
 
     const newWeightData = [...state.weightData, setLog];
@@ -368,14 +335,15 @@ function finishSet(state) {
     //                   workout.exercises[exerciseIndex - 1]?.biSetId === currentExercise.biSetId;
 
     if (isBiSetStart) {
-        // Ex 1 Finished -> Go to Ex 2 (PREP 5s)
+        // Ex 1 Finished -> Go to Ex 2 (PREP: Use current Ex restExercise as transition time)
+        const transitionTime = currentExercise.restExercise > 0 ? currentExercise.restExercise : 5;
         return {
             ...state,
             weightData: newWeightData,
             exerciseIndex: exerciseIndex + 1,
             phase: PHASE.PREP,
-            timeLeft: 5,
-            phaseDuration: 5,
+            timeLeft: transitionTime,
+            phaseDuration: transitionTime,
             setNumber: setNumber,
             repNumber: 0,
             actualReps: 0

@@ -95,40 +95,89 @@ export default function WorkoutSummary({ workout, weightData, onSave, onDiscard,
                 </p>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {workout.exercises.map((exercise) => {
-                        // Find all entries for this exercise, preserving their original index
-                        const entriesWithIndex = data
-                            .map((entry, idx) => ({ ...entry, originalIndex: idx }))
-                            .filter(e => e.exerciseId === exercise.id);
+                    {(() => {
+                        const groups = [];
+                        let i = 0;
+                        while (i < workout.exercises.length) {
+                            const ex = workout.exercises[i];
+                            const group = [ex];
+                            let j = i + 1;
 
-                        if (entriesWithIndex.length === 0) return null;
+                            // Check for Bi-Set chain (sequential exercises with same biSetId)
+                            if (ex.biSetId) {
+                                while (j < workout.exercises.length && workout.exercises[j].biSetId === ex.biSetId) {
+                                    group.push(workout.exercises[j]);
+                                    j++;
+                                }
+                            }
+                            groups.push(group);
+                            i = j;
+                        }
 
-                        return (
-                            <div key={exercise.id}>
-                                <div style={{
-                                    fontWeight: 'bold', margin: '20px 0 10px', color: 'var(--color-primary)',
-                                    background: '#222', padding: '8px 12px', borderRadius: '4px'
+                        return groups.map((group, gIdx) => {
+                            const isBiSet = group.length > 1;
+
+                            return (
+                                <div key={gIdx} style={{
+                                    padding: isBiSet ? '16px' : '0',
+                                    border: isBiSet ? '1px solid #ff9800' : 'none',
+                                    borderRadius: '12px',
+                                    position: 'relative',
+                                    marginTop: isBiSet ? '24px' : '0'
                                 }}>
-                                    {exercise.name}
-                                </div>
+                                    {isBiSet && (
+                                        <div style={{
+                                            position: 'absolute', top: '-12px', left: '16px',
+                                            background: '#ff9800', color: 'black', fontWeight: 'bold',
+                                            padding: '2px 8px', borderRadius: '4px', fontSize: '0.8em'
+                                        }}>
+                                            BI-SET
+                                        </div>
+                                    )}
 
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                                    {entriesWithIndex.map((entry) => {
-                                        const comparison = getComparison(entry);
+                                    {group.map(exercise => {
+                                        const entriesWithIndex = data
+                                            .map((entry, idx) => ({ ...entry, originalIndex: idx }))
+                                            .filter(e => {
+                                                // Ensure correct matching for Bi-Set vs Standalone instances
+                                                // exercises with same ID might appear in different Bi-Sets
+                                                const targetBiSet = exercise.biSetId || null;
+                                                const entryBiSet = e.biSetId || null;
+                                                return e.exerciseId === exercise.id && entryBiSet === targetBiSet;
+                                            });
+
+                                        if (entriesWithIndex.length === 0) return null;
+
                                         return (
-                                            <SummaryRow
-                                                key={entry.originalIndex}
-                                                entry={entry}
-                                                idx={entry.originalIndex} // Pass original index for updates
-                                                onUpdate={updateEntry}
-                                                comparison={comparison}
-                                            />
+                                            <div key={exercise.id} style={{ marginBottom: isBiSet ? '16px' : '0' }}>
+                                                <div style={{
+                                                    fontWeight: 'bold', margin: '20px 0 10px', color: 'var(--color-primary)',
+                                                    background: '#222', padding: '8px 12px', borderRadius: '4px'
+                                                }}>
+                                                    {exercise.name}
+                                                </div>
+
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    {entriesWithIndex.map((entry) => {
+                                                        const comparison = getComparison(entry);
+                                                        return (
+                                                            <SummaryRow
+                                                                key={entry.originalIndex}
+                                                                entry={entry}
+                                                                idx={entry.originalIndex}
+                                                                onUpdate={updateEntry}
+                                                                comparison={comparison}
+                                                            />
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
                                         );
                                     })}
                                 </div>
-                            </div>
-                        );
-                    })}
+                            );
+                        });
+                    })()}
                 </div>
             </div>
 

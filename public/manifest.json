@@ -1,6 +1,6 @@
 {
   "name": "Cadence Timer",
-  "short_name": "Cadence",
+  "short_name": "Cadence Timer",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#121212",

@@ -50,7 +50,19 @@ export default function WorkoutSetup({ onStart, onViewHistory }) {
 
     const updateExercise = (index, field, value) => {
         const newExercises = [...activeWorkout.exercises];
-        newExercises[index] = { ...newExercises[index], [field]: value };
+        const currentEx = newExercises[index];
+        newExercises[index] = { ...currentEx, [field]: value };
+
+        // Sync Logic for Bi-Sets
+        if (currentEx.biSetId && (field === 'sets' || field === 'restSet')) {
+            // Find all exercises with same biSetId
+            newExercises.forEach((ex, i) => {
+                if (ex.biSetId === currentEx.biSetId && i !== index) {
+                    newExercises[i] = { ...newExercises[i], [field]: value };
+                }
+            });
+        }
+
         updateActiveWorkout({ ...activeWorkout, exercises: newExercises });
     };
 
@@ -296,11 +308,11 @@ export default function WorkoutSetup({ onStart, onViewHistory }) {
                             <h4 style={{ margin: '16px 0 8px', color: '#888', fontSize: '0.9em', textTransform: 'uppercase', letterSpacing: '1px' }}>Intervalos (Segundos)</h4>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                                 <label style={{ fontSize: '0.9em', color: '#ccc' }}>
-                                    Entre Séries
+                                    {isLinkedWithNext || isLinkedWithPrev ? 'Entre Séries (Bi-Set)' : 'Entre Séries'}
                                     <input type="number" value={ex.restSet} onChange={(e) => updateExercise(idx, 'restSet', parseInt(e.target.value))} style={inputStyle} />
                                 </label>
                                 <label style={{ fontSize: '0.9em', color: '#ccc' }}>
-                                    Entre Exercícios
+                                    {isLinkedWithNext ? 'Transição (Prep)' : (isLinkedWithPrev ? 'Descanso Final' : 'Entre Exercícios')}
                                     <input type="number" value={ex.restExercise} onChange={(e) => updateExercise(idx, 'restExercise', parseInt(e.target.value))} style={inputStyle} />
                                 </label>
                             </div>

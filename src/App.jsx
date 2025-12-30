@@ -30,7 +30,8 @@ function App() {
         setNumber: d.setNumber,
         reps: d.reps,
         weight: d.weight,
-        time: d.time // New: Save isometric duration
+        time: d.time, // New: Save isometric duration
+        biSetId: d.biSetId || null // Save Bi-Set ID for grouping
       };
     });
 
