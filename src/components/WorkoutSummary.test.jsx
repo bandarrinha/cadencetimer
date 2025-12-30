@@ -138,8 +138,8 @@ describe('WorkoutSummary', () => {
             ]
         };
         const biSetData = [
-            { exerciseId: 'e1', setNumber: 1, weight: 10, reps: 10 },
-            { exerciseId: 'e2', setNumber: 1, weight: 10, reps: 10 }
+            { exerciseId: 'e1', setNumber: 1, weight: 10, reps: 10, biSetId: 'g1' },
+            { exerciseId: 'e2', setNumber: 1, weight: 10, reps: 10, biSetId: 'g1' }
         ];
 
         render(
