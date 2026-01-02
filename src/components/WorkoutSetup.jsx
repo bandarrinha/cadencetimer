@@ -13,7 +13,8 @@ const DEFAULT_EXERCISE = {
     cadence: { eccentric: 3, eccentricPause: 1, concentric: 1, concentricPause: 0 },
     restSet: 45,
     restExercise: 60,
-    biSetId: null // Added for grouping
+    biSetId: null, // Added for grouping
+    prepTime: 5 // Added for configurable prep time
 };
 
 const DEFAULT_WORKOUT = {
@@ -26,8 +27,11 @@ export default function WorkoutSetup({ onStart, onViewHistory }) {
     const [workouts, setWorkouts] = useState(() => {
         const saved = localStorage.getItem('cadence_workouts');
         const parsed = saved ? JSON.parse(saved) : [DEFAULT_WORKOUT];
-        // Migration: Ensure biSetId exists
-        parsed.forEach(w => w.exercises.forEach(e => { if (e.biSetId === undefined) e.biSetId = null; }));
+        // Migration: Ensure biSetId and prepTime exist
+        parsed.forEach(w => w.exercises.forEach(e => {
+            if (e.biSetId === undefined) e.biSetId = null;
+            if (e.prepTime === undefined) e.prepTime = 5;
+        }));
         return parsed;
     });
 
@@ -176,6 +180,7 @@ export default function WorkoutSetup({ onStart, onViewHistory }) {
                         if (w.exercises) {
                             w.exercises.forEach(ex => {
                                 if (ex.biSetId === undefined) ex.biSetId = null;
+                                if (ex.prepTime === undefined) ex.prepTime = 5;
                             });
                         }
                     });
@@ -354,15 +359,21 @@ export default function WorkoutSetup({ onStart, onViewHistory }) {
                             )}
 
                             <h4 style={{ margin: '16px 0 8px', color: '#888', fontSize: '0.9em', textTransform: 'uppercase', letterSpacing: '1px' }}>Intervalos (Segundos)</h4>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                                <label style={{ fontSize: '0.9em', color: '#ccc' }}>
+                                    Preparo
+                                    <input type="number" value={ex.prepTime || 5} onChange={(e) => updateExercise(idx, 'prepTime', parseInt(e.target.value))} style={inputStyle} />
+                                </label>
                                 <label style={{ fontSize: '0.9em', color: '#ccc' }}>
                                     {isLinkedWithNext || isLinkedWithPrev ? 'Entre Séries (Bi-Set)' : 'Entre Séries'}
                                     <input type="number" value={ex.restSet} onChange={(e) => updateExercise(idx, 'restSet', parseInt(e.target.value))} style={inputStyle} />
                                 </label>
-                                <label style={{ fontSize: '0.9em', color: '#ccc' }}>
-                                    {isLinkedWithNext ? 'Transição (Prep)' : (isLinkedWithPrev ? 'Descanso Final' : 'Entre Exercícios')}
-                                    <input type="number" value={ex.restExercise} onChange={(e) => updateExercise(idx, 'restExercise', parseInt(e.target.value))} style={inputStyle} />
-                                </label>
+                                {!isLinkedWithNext && (
+                                    <label style={{ fontSize: '0.9em', color: '#ccc' }}>
+                                        {isLinkedWithNext ? 'Transição (Prep)' : (isLinkedWithPrev ? 'Descanso Final' : 'Entre Exercícios')}
+                                        <input type="number" value={ex.restExercise} onChange={(e) => updateExercise(idx, 'restExercise', parseInt(e.target.value))} style={inputStyle} />
+                                    </label>
+                                )}
                             </div>
                         </div>
 

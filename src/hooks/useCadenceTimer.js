@@ -43,8 +43,8 @@ function timerReducer(state, action) {
                 ...state,
                 status: 'RUNNING',
                 phase: PHASE.PREP,
-                timeLeft: 5,
-                phaseDuration: 5,
+                timeLeft: state.workout.exercises[0].prepTime || 5,
+                phaseDuration: state.workout.exercises[0].prepTime || 5,
                 setNumber: 1,
                 repNumber: 0,
                 actualReps: 0,
@@ -185,13 +185,30 @@ function transitionPhase(state) {
     const order = startConcentric ? orderInv : orderStd;
 
     if (phase === PHASE.REST_EXERCISE) {
-        // Transition to Next Exercise
+        // Transition to Next Exercise -> SKIP PREP (Go directly to Work)
+        const nextExercise = workout.exercises[exerciseIndex + 1];
+
+        // We need to calculate the initial phase for the next exercise
+        const startConcentricNext = nextExercise.startConcentric || false;
+        const nextOrder = startConcentricNext ? orderInv : orderStd;
+        const firstPhase = nextOrder[0];
+
+        // Need cadence for next exercise to determine duration
+        const nextCadence = nextExercise.cadence;
+        const nextGetDur = (p) => {
+            if (p === PHASE.ECCENTRIC) return nextCadence.eccentric;
+            if (p === PHASE.BOTTOM_HOLD) return nextCadence.eccentricPause;
+            if (p === PHASE.CONCENTRIC) return nextCadence.concentric;
+            if (p === PHASE.TOP_HOLD) return nextCadence.concentricPause;
+            return 0;
+        };
+
         return {
             ...state,
             exerciseIndex: exerciseIndex + 1,
-            phase: PHASE.PREP,
-            timeLeft: 5, // Default prep time
-            phaseDuration: 5,
+            phase: firstPhase, // Direct to work phase
+            timeLeft: nextGetDur(firstPhase),
+            phaseDuration: nextGetDur(firstPhase),
             setNumber: 1,
             repNumber: 0,
             actualReps: 0
@@ -207,12 +224,30 @@ function transitionPhase(state) {
             const isBiSetEnd = currentExercise.biSetId &&
                 workout.exercises[exerciseIndex - 1]?.biSetId === currentExercise.biSetId;
             if (isBiSetEnd) {
+                // Loop back to the first exercise of the Bi-Set -> SKIP PREP (Direct to work)
+                const targetExercise = workout.exercises[exerciseIndex - 1];
+
+                // Calculate initial phase for target exercise (Ex 1)
+                const startConcentricTarget = targetExercise.startConcentric || false;
+                const targetOrder = startConcentricTarget ? orderInv : orderStd;
+                const firstPhaseTarget = targetOrder[0];
+
+                // Get cadence duration
+                const targetCadence = targetExercise.cadence;
+                const targetGetDur = (p) => {
+                    if (p === PHASE.ECCENTRIC) return targetCadence.eccentric;
+                    if (p === PHASE.BOTTOM_HOLD) return targetCadence.eccentricPause;
+                    if (p === PHASE.CONCENTRIC) return targetCadence.concentric;
+                    if (p === PHASE.TOP_HOLD) return targetCadence.concentricPause;
+                    return 0;
+                };
+
                 return {
                     ...state,
                     exerciseIndex: exerciseIndex - 1,
-                    phase: PHASE.PREP,
-                    timeLeft: 5,
-                    phaseDuration: 5,
+                    phase: firstPhaseTarget, // Direct to work
+                    timeLeft: targetGetDur(firstPhaseTarget),
+                    phaseDuration: targetGetDur(firstPhaseTarget),
                     // setNumber is already correct (N+1)
                     repNumber: 0,
                     actualReps: 0
@@ -335,8 +370,9 @@ function finishSet(state) {
     //                   workout.exercises[exerciseIndex - 1]?.biSetId === currentExercise.biSetId;
 
     if (isBiSetStart) {
-        // Ex 1 Finished -> Go to Ex 2 (PREP: Use current Ex restExercise as transition time)
-        const transitionTime = currentExercise.restExercise > 0 ? currentExercise.restExercise : 5;
+        // Ex 1 Finished -> Go to Ex 2 (PREP: Use next Ex prepTime as transition time)
+        const nextExercise = workout.exercises[exerciseIndex + 1];
+        const transitionTime = nextExercise.prepTime || 5;
         return {
             ...state,
             weightData: newWeightData,
