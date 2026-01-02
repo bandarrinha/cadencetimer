@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, Play, Download, Upload, History, Link, Unlink } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Trash2, ArrowLeft, Link, Unlink } from 'lucide-react';
 
 
 const DEFAULT_EXERCISE = {
@@ -23,11 +23,12 @@ const DEFAULT_WORKOUT = {
     exercises: [{ ...DEFAULT_EXERCISE, id: crypto.randomUUID(), name: 'Supino Reto' }]
 };
 
-export default function WorkoutSetup({ onStart, onViewHistory }) {
+export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkouts }) {
+    // We use local state for edits, but sync back to parent
     const [workouts, setWorkouts] = useState(() => {
         const saved = localStorage.getItem('cadence_workouts');
         const parsed = saved ? JSON.parse(saved) : [DEFAULT_WORKOUT];
-        // Migration: Ensure biSetId and prepTime exist
+        // Migration logic preserved
         parsed.forEach(w => w.exercises.forEach(e => {
             if (e.biSetId === undefined) e.biSetId = null;
             if (e.prepTime === undefined) e.prepTime = 5;
@@ -35,18 +36,13 @@ export default function WorkoutSetup({ onStart, onViewHistory }) {
         return parsed;
     });
 
-    const [activeWorkoutId, setActiveWorkoutId] = useState(() => {
-        const savedId = localStorage.getItem('active_workout_id');
-        return savedId || workouts[0].id;
-    });
+    const [activeWorkoutId, setActiveWorkoutId] = useState(initialWorkoutId || workouts[0].id);
 
     const activeWorkout = workouts.find(w => w.id === activeWorkoutId) || workouts[0];
-    const fileInputRef = useRef(null);
 
     useEffect(() => {
-        localStorage.setItem('cadence_workouts', JSON.stringify(workouts));
-        localStorage.setItem('active_workout_id', activeWorkoutId);
-    }, [workouts, activeWorkoutId]);
+        onUpdateWorkouts(workouts);
+    }, [workouts, onUpdateWorkouts]);
 
     const updateActiveWorkout = (newWorkout) => {
         setWorkouts(workouts.map(w => w.id === activeWorkoutId ? newWorkout : w));
@@ -114,9 +110,6 @@ export default function WorkoutSetup({ onStart, onViewHistory }) {
             newExercises[index + 1] = { ...next, biSetId: null };
         } else {
             // Link
-            // If current already has a biSetId (linked to prev?), we need to decide logic.
-            // Simplified: Generate new ID and assign to both.
-            // Note: This simple logic supports pairs. Chains (A-B-C) would require more logic, but user asked for "Bi-sets" (2 exercises).
             const newId = crypto.randomUUID();
             newExercises[index] = { ...current, biSetId: newId };
             newExercises[index + 1] = { ...next, biSetId: newId };
@@ -147,68 +140,19 @@ export default function WorkoutSetup({ onStart, onViewHistory }) {
         }
     };
 
-    // Import/Export
-    const exportData = () => {
-        const data = {
-            workouts: JSON.parse(localStorage.getItem('cadence_workouts')),
-            history: JSON.parse(localStorage.getItem('cadence_history'))
-        };
-        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `cadence_backup_${new Date().toISOString().slice(0, 10)}.json`;
-        a.click();
-    };
-
-    const handleImport = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (ev) => {
-            try {
-                const data = JSON.parse(ev.target.result);
-
-                // Validation: Check if it looks like a valid backup
-                if (!data.workouts && !data.history) {
-                    throw new Error("Arquivo inválido. O JSON não contém dados de treinos ou histórico.");
-                }
-
-                if (data.workouts) {
-                    // Ensure biSetId presence for compatibility
-                    data.workouts.forEach(w => {
-                        if (w.exercises) {
-                            w.exercises.forEach(ex => {
-                                if (ex.biSetId === undefined) ex.biSetId = null;
-                                if (ex.prepTime === undefined) ex.prepTime = 5;
-                            });
-                        }
-                    });
-                    localStorage.setItem('cadence_workouts', JSON.stringify(data.workouts));
-                }
-
-                if (data.history) {
-                    localStorage.setItem('cadence_history', JSON.stringify(data.history));
-                }
-
-                alert('Dados importados com sucesso! A página será recarregada.');
-                window.location.reload();
-            } catch (err) {
-                alert('Erro ao importar arquivo: ' + err.message);
-            } finally {
-                // Reset input to allow re-selecting the same file if needed
-                if (fileInputRef.current) {
-                    fileInputRef.current.value = '';
-                }
-            }
-        };
-        reader.readAsText(file);
-    };
 
     return (
         <div className="setup-container" style={{ padding: '20px', maxWidth: '800px', margin: '0 auto', textAlign: 'left', paddingBottom: '100px' }}>
 
             <header style={{ marginBottom: '20px', background: '#1e1e1e', padding: '16px', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px' }}>
+                    <button onClick={onBack} style={{ background: 'transparent', border: 'none', color: '#ccc', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                        <ArrowLeft /> Voltar
+                    </button>
+                    <h2 style={{ flex: 1, textAlign: 'center', margin: 0, fontSize: '1.2em' }}>Editar Treino</h2>
+                    <div style={{ width: '80px' }}></div> {/* Spacer for alignment */}
+                </div>
+
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ flex: 1, display: 'flex', gap: '8px', marginRight: '8px' }}>
                         <select
@@ -227,32 +171,6 @@ export default function WorkoutSetup({ onStart, onViewHistory }) {
                             <Trash2 size={18} />
                         </button>
                     </div>
-                </div>
-
-                <div style={{ display: 'flex', gap: '10px' }}>
-                    <button onClick={() => onStart(activeWorkout)} className="btn-primary" style={{ flex: 2, display: 'flex', justifyContent: 'center', gap: '8px', alignItems: 'center', background: 'var(--color-primary)', color: 'black', fontWeight: 'bold' }}>
-                        <Play size={20} /> INICIAR
-                    </button>
-                    <button onClick={onViewHistory} style={{ flex: 1, background: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                        <History size={18} />
-                    </button>
-                </div>
-
-                {/* Backup Actions */}
-                <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
-                    <button onClick={exportData} style={{ flex: 1, background: '#111', fontSize: '0.8em', display: 'flex', justifyContent: 'center', gap: '6px' }}>
-                        <Download size={14} /> Backup
-                    </button>
-                    <button onClick={() => fileInputRef.current.click()} style={{ flex: 1, background: '#111', fontSize: '0.8em', display: 'flex', justifyContent: 'center', gap: '6px' }}>
-                        <Upload size={14} /> Restaurar
-                    </button>
-                    <input
-                        type="file"
-                        ref={fileInputRef}
-                        style={{ display: 'none' }}
-                        accept=".json"
-                        onChange={handleImport}
-                    />
                 </div>
             </header>
 
