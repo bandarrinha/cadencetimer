@@ -293,32 +293,57 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                                     </label>
                                 )}
                             </div>
+
+                            {/* Unilateral Settings */}
+                            <div style={{ marginTop: '16px', borderTop: '1px solid #333', paddingTop: '16px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9em', background: '#2a2a2a', padding: '6px 12px', borderRadius: '20px', border: ex.isUnilateral ? '1px solid var(--color-primary)' : '1px solid transparent' }}>
+                                        <input type="checkbox" checked={ex.isUnilateral || false} onChange={(e) => updateExercise(idx, 'isUnilateral', e.target.checked)} />
+                                        Ex. Unilateral
+                                    </label>
+
+                                    {ex.isUnilateral && (
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9em', color: '#ccc' }}>
+                                            Transição entre Lados (s):
+                                            <input
+                                                type="number"
+                                                value={ex.unilateralTransition || 5}
+                                                onChange={(e) => updateExercise(idx, 'unilateralTransition', parseInt(e.target.value))}
+                                                style={{ ...inputStyle, width: '60px', marginTop: 0 }}
+                                            />
+                                        </label>
+                                    )}
+                                </div>
+                            </div>
+
                         </div>
 
                         {/* Link Button between exercises */}
-                        {idx < activeWorkout.exercises.length - 1 && (
-                            <div style={{ display: 'flex', justifyContent: 'center', margin: isLinkedWithNext ? '-10px 0' : '-8px 0 8px', zIndex: 10, position: 'relative' }}>
-                                <button
-                                    onClick={() => toggleBiSet(idx)}
-                                    style={{
-                                        background: isLinkedWithNext ? '#ff9800' : '#333',
-                                        color: isLinkedWithNext ? 'black' : '#888',
-                                        border: 'none',
-                                        borderRadius: '50%',
-                                        width: '32px',
-                                        height: '32px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        boxShadow: '0 2px 4px rgba(0,0,0,0.5)',
-                                        cursor: 'pointer'
-                                    }}
-                                    title={isLinkedWithNext ? "Desfazer Bi-Set" : "Criar Bi-Set"}
-                                >
-                                    {isLinkedWithNext ? <Unlink size={16} /> : <Link size={16} />}
-                                </button>
-                            </div>
-                        )}
+                        {
+                            idx < activeWorkout.exercises.length - 1 && (
+                                <div style={{ display: 'flex', justifyContent: 'center', margin: isLinkedWithNext ? '-10px 0' : '-8px 0 8px', zIndex: 10, position: 'relative' }}>
+                                    <button
+                                        onClick={() => toggleBiSet(idx)}
+                                        style={{
+                                            background: isLinkedWithNext ? '#ff9800' : '#333',
+                                            color: isLinkedWithNext ? 'black' : '#888',
+                                            border: 'none',
+                                            borderRadius: '50%',
+                                            width: '32px',
+                                            height: '32px',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            boxShadow: '0 2px 4px rgba(0,0,0,0.5)',
+                                            cursor: 'pointer'
+                                        }}
+                                        title={isLinkedWithNext ? "Desfazer Bi-Set" : "Criar Bi-Set"}
+                                    >
+                                        {isLinkedWithNext ? <Unlink size={16} /> : <Link size={16} />}
+                                    </button>
+                                </div>
+                            )
+                        }
                     </div>
                 );
             })}
@@ -326,7 +351,7 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
             <button onClick={addExercise} style={{ width: '100%', padding: '16px', border: '2px dashed #444', background: 'transparent', color: '#888', borderRadius: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
                 <Plus /> Adicionar Exercício
             </button>
-        </div>
+        </div >
     );
 }
 

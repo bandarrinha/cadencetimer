@@ -55,7 +55,8 @@ function App() {
         reps: d.reps,
         weight: d.weight,
         time: d.time,
-        biSetId: d.biSetId || null
+        biSetId: d.biSetId || null,
+        side: d.side || null
       };
     });
 

@@ -26,7 +26,9 @@ const initialState = {
     workout: null, // Will be populated on start
     startTime: null, // Timestamp when workout started
     finishTime: null, // Timestamp when workout finished
-    totalWorkoutTime: 0 // Duration in seconds
+    totalWorkoutTime: 0, // Duration in seconds
+    currentSide: null, // 'LEFT', 'RIGHT' or null (for non-unilateral or rest)
+    nextStartSide: 'LEFT' // Usage: which side to start with on next set
 };
 
 function timerReducer(state, action) {
@@ -51,7 +53,9 @@ function timerReducer(state, action) {
                 isometricTime: 0,
                 exerciseIndex: 0,
                 startTime: Date.now(), // Capture start time
-                finishTime: null
+                finishTime: null,
+                currentSide: state.workout.exercises[0].isUnilateral ? 'LEFT' : null,
+                nextStartSide: 'LEFT'
             };
         case 'PAUSE':
             return { ...state, status: 'PAUSED' };
@@ -80,42 +84,20 @@ function timerReducer(state, action) {
             // Finish current set immediately.
             return finishSet(state, true); // true = forced/manual finish
 
+        case 'SET_START_SIDE':
+            return { ...state, nextStartSide: action.payload };
+
         case 'LOG_SET_DATA': {
-            // Payload: { weight }
-            // We update the last history entry or a temporary holding area? 
-            // Best to store in weightData array. WE assume this is regarding the PREVIOUS set just finished.
-            // Identifying which set? state.exerciseIndex and state.setNumber might have already advanced if we are in Rest.
-            // Actually, if we are in Rest Set, we just finished Set X. 
-            // If we are in Rest Exercise, we just finished Set X (Last set).
-
-            // Let's rely on UI to pass full data or we deduce?
-            // Let's just append to weightData.
-
-            // We assume this refers to the current set if running, or the just-completed set if resting.
-            // If in rest, setNumber has already incremented for next set (unless finished).
-            // So if REST_SET or REST_EXERCISE, we target setNumber - 1. Or current exercise index.
-
-            // However, simpler: The payload from UI should contain the exact ID and set number to update.
-            // The existing logic tries to find it.
-
-            // FIX: If we just finished a set, we want to update THAT set.
-            // Ensure payload is correct from UI.
-
-            // Optimization: If weight is 0/undefined in payload, try to inherit from previous set of same exercise?
-            // Actually, best to do inheritance at creation (finishSet).
-            // Optimization: If weight is 0/undefined in payload, try to inherit from previous set of same exercise?
-            // Actually, best to do inheritance at creation (finishSet).
-            const { exerciseId, setNumber, weight, reps, time } = action.payload;
+            // Payload: { weight, reps, side }
+            const { exerciseId, setNumber, weight, reps, time, side } = action.payload;
 
             // Use findLastIndex to ensure we update the MOST RECENT entry for this exercise/set combo.
-            // This is critical when the same exerciseId appears multiple times in the workout (e.g. repeated block or Bi-Sets).
-            // We want to edit the one we just added/are processing, which is at the end of the array.
-            // Use reverse lookup to ensure we update the MOST RECENT entry for this exercise/set combo.
-            // This is critical when the same exerciseId appears multiple times in the workout.
             let existingIndex = -1;
             for (let i = state.weightData.length - 1; i >= 0; i--) {
                 const w = state.weightData[i];
-                if (w.exerciseId === exerciseId && w.setNumber === setNumber) {
+                // Match Side as well if provided
+                const sideMatch = side ? w.side === side : true;
+                if (w.exerciseId === exerciseId && w.setNumber === setNumber && sideMatch) {
                     existingIndex = i;
                     break;
                 }
@@ -123,12 +105,8 @@ function timerReducer(state, action) {
 
             let newWeightData = [...state.weightData];
             if (existingIndex >= 0) {
-                // If time is undefined, keep existing time (or reps). 
-                // We typically update reps OR time depending on exercise type.
-                // But let's just spread whatever is passed.
                 newWeightData[existingIndex] = { ...newWeightData[existingIndex], weight, reps, ...(time !== undefined ? { time } : {}) };
             } else {
-                // Look up biSetId from workout to be safe
                 const exDef = state.workout.exercises.find(e => e.id === exerciseId);
                 newWeightData.push({
                     exerciseId,
@@ -136,7 +114,8 @@ function timerReducer(state, action) {
                     reps,
                     weight,
                     time: time || 0,
-                    biSetId: exDef ? exDef.biSetId : null
+                    biSetId: exDef ? exDef.biSetId : null,
+                    side: side || null
                 });
             }
 
@@ -211,7 +190,9 @@ function transitionPhase(state) {
             phaseDuration: nextGetDur(firstPhase),
             setNumber: 1,
             repNumber: 0,
-            actualReps: 0
+            actualReps: 0,
+            currentSide: nextExercise.isUnilateral ? 'LEFT' : null,
+            nextStartSide: 'LEFT'
         };
     }
 
@@ -250,7 +231,8 @@ function transitionPhase(state) {
                     phaseDuration: targetGetDur(firstPhaseTarget),
                     // setNumber is already correct (N+1)
                     repNumber: 0,
-                    actualReps: 0
+                    actualReps: 0,
+                    currentSide: targetExercise.isUnilateral ? (state.nextStartSide || 'LEFT') : null
                 };
             }
         }
@@ -274,7 +256,11 @@ function transitionPhase(state) {
         }
 
         // Standard Flow
-        return enterPhase(state, order[0], getDuration(order[0]), order);
+        const nextSide = (phase === PHASE.REST_SET && currentExercise.isUnilateral)
+            ? (state.nextStartSide || 'LEFT')
+            : state.currentSide;
+
+        return enterPhase({ ...state, currentSide: nextSide }, order[0], getDuration(order[0]), order);
     }
 
     // Find current index in order
@@ -356,44 +342,82 @@ function finishSet(state) {
         reps: currentExercise.isIsometric ? 0 : actualReps,
         time: currentExercise.isIsometric ? state.isometricTime : 0,
         weight: suggestedWeight,
-        biSetId: currentExercise.biSetId || null
+        biSetId: currentExercise.biSetId || null,
+        side: state.currentSide || null
     };
 
     const newWeightData = [...state.weightData, setLog];
+
+    // Unilateral Logic
+    if (currentExercise.isUnilateral) {
+        // If we just finished the FIRST side, we need to transition to the SECOND side.
+        // If we just finished the SECOND side, we proceed to Rest.
+
+        // currentSide is what we just finished.
+        // nextStartSide is what we started with.
+        const startSide = state.nextStartSide || 'LEFT';
+        const otherSide = startSide === 'LEFT' ? 'RIGHT' : 'LEFT';
+
+        if (state.currentSide === startSide) {
+            // Finished first side. Transition to Other Side.
+            const transitionTime = currentExercise.unilateralTransition || 5;
+
+            return {
+                ...state,
+                weightData: newWeightData,
+                phase: PHASE.PREP, // Reuse PREP as transition
+                timeLeft: transitionTime,
+                phaseDuration: transitionTime,
+                currentSide: otherSide, // Set side for next phase
+                repNumber: 0,
+                actualReps: 0,
+                // setNumber STAYS SAME
+            };
+        }
+        // Else: We finished the second side (state.currentSide === otherSide).
+        // Proceed to Rest normally.
+        // We will reset currentSide to the *next* set's start side when we come back?
+        // Or keep it null during rest.
+    }
+
+    const isExerciseDone = setNumber >= currentExercise.sets;
+
+    // Common Next State (Rest or Finish)
+    const nextStateBase = {
+        weightData: newWeightData,
+        repNumber: 0,
+        actualReps: 0,
+        currentSide: null // Reset side during rest/finish
+    };
 
     // Bi-Set Logic Step 1: Check if starting a bi-set transition (Ex 1 -> Ex 2)
     const isBiSetStart = currentExercise.biSetId &&
         workout.exercises[exerciseIndex + 1]?.biSetId === currentExercise.biSetId;
 
-    // Bi-Set Logic Step 2: Check if ending a bi-set pair (Ex 2 -> Rest)
-    // const isBiSetEnd = currentExercise.biSetId && 
-    //                   workout.exercises[exerciseIndex - 1]?.biSetId === currentExercise.biSetId;
-
     if (isBiSetStart) {
-        // Ex 1 Finished -> Go to Ex 2 (PREP: Use next Ex prepTime as transition time)
+        // Ex 1 Finished -> Go to Ex 2
         const nextExercise = workout.exercises[exerciseIndex + 1];
         const transitionTime = nextExercise.prepTime || 5;
+        const nextSide = nextExercise.isUnilateral ? (state.nextStartSide || 'LEFT') : null; // Should Bi-Set share start side? Probably.
+
         return {
             ...state,
-            weightData: newWeightData,
+            ...nextStateBase,
             exerciseIndex: exerciseIndex + 1,
             phase: PHASE.PREP,
             timeLeft: transitionTime,
             phaseDuration: transitionTime,
-            setNumber: setNumber,
-            repNumber: 0,
-            actualReps: 0
+            setNumber: setNumber, // Keep set number for Bi-Set
+            currentSide: nextSide
         };
     }
-
-    const isExerciseDone = setNumber >= currentExercise.sets;
 
     if (isExerciseDone) {
         if (exerciseIndex >= workout.exercises.length - 1) {
             // Workout Done
             return {
                 ...state,
-                weightData: newWeightData,
+                ...nextStateBase,
                 phase: PHASE.FINISHED,
                 status: 'FINISHED',
                 timeLeft: 0,
@@ -403,7 +427,7 @@ function finishSet(state) {
             // Next Exercise
             return {
                 ...state,
-                weightData: newWeightData,
+                ...nextStateBase,
                 phase: PHASE.REST_EXERCISE,
                 timeLeft: currentExercise.restExercise,
                 phaseDuration: currentExercise.restExercise
@@ -413,13 +437,11 @@ function finishSet(state) {
         // Next Set
         return {
             ...state,
-            weightData: newWeightData,
+            ...nextStateBase,
             phase: PHASE.REST_SET,
             timeLeft: currentExercise.restSet,
             phaseDuration: currentExercise.restSet,
-            setNumber: setNumber + 1,
-            repNumber: 0,
-            actualReps: 0
+            setNumber: setNumber + 1
         };
     }
 }
@@ -495,9 +517,11 @@ export const useCadenceTimer = () => {
     // But if they force finish:
     const finishWorkout = useCallback(() => dispatch({ type: 'FINISH_WORKOUT' }), []);
 
-    const logSetData = useCallback((exerciseId, setNumber, reps, weight, time) => {
-        dispatch({ type: 'LOG_SET_DATA', payload: { exerciseId, setNumber, reps, weight, time } });
+    const logSetData = useCallback((exerciseId, setNumber, reps, weight, time, side = null) => {
+        dispatch({ type: 'LOG_SET_DATA', payload: { exerciseId, setNumber, reps, weight, time, side } });
     }, []);
+
+    const setStartSide = useCallback((side) => dispatch({ type: 'SET_START_SIDE', payload: side }), []);
 
     return {
         state,
@@ -507,6 +531,7 @@ export const useCadenceTimer = () => {
         skip,
         registerFailure,
         finishWorkout,
-        logSetData
+        logSetData,
+        setStartSide
     };
 };

@@ -152,7 +152,7 @@ export default function WorkoutHistory({ onBack }) {
                                                             {exData.name}
                                                         </div>
                                                         <div style={{ padding: '12px' }}>
-                                                            <div style={{ display: 'grid', gridTemplateColumns: '30px 1fr 1fr auto', fontSize: '0.8em', opacity: 0.6, marginBottom: '8px', gap: '4px' }}>
+                                                            <div style={{ display: 'grid', gridTemplateColumns: '40px 1fr 1fr auto', fontSize: '0.8em', opacity: 0.6, marginBottom: '8px', gap: '4px' }}>
                                                                 <span>#</span>
                                                                 <span style={{ textAlign: 'center' }}>REALIZADO</span>
                                                                 <span style={{ textAlign: 'center' }}>CARGA</span>
@@ -164,13 +164,28 @@ export default function WorkoutHistory({ onBack }) {
                                                                 return (
                                                                     <div key={stIdx} style={{
                                                                         display: 'grid',
-                                                                        gridTemplateColumns: isEditing ? '30px 1fr auto' : '30px 1fr 1fr auto',
+                                                                        gridTemplateColumns: isEditing ? '40px 1fr auto' : '40px 1fr 1fr auto',
                                                                         alignItems: 'center',
                                                                         padding: '8px 0',
                                                                         borderBottom: '1px solid #2a2a2a',
                                                                         gap: '4px'
                                                                     }}>
-                                                                        <span>{set.setNumber}</span>
+                                                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1 }}>
+                                                                            <span>{set.setNumber}</span>
+                                                                            {set.side && (
+                                                                                <span style={{
+                                                                                    fontSize: '0.7em',
+                                                                                    color: '#000',
+                                                                                    background: set.side === 'LEFT' ? 'var(--color-primary)' : '#ff9800',
+                                                                                    fontWeight: 'bold',
+                                                                                    padding: '1px 4px',
+                                                                                    borderRadius: '3px',
+                                                                                    marginTop: '2px'
+                                                                                }}>
+                                                                                    {set.side === 'LEFT' ? 'E' : 'D'}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
 
                                                                         {isEditing ? (
                                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>

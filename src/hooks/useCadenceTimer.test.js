@@ -260,4 +260,131 @@ describe('useCadenceTimer', () => {
         expect(result.current.state.timeLeft).toBeGreaterThanOrEqual(1.9);
         expect(result.current.state.timeLeft).toBeLessThanOrEqual(2.0);
     });
+
+    it('handles unilateral exercise transitions (Left -> Right -> Rest)', () => {
+        const unilateralWorkout = {
+            id: 'uni-test',
+            name: 'Uni Workout',
+            exercises: [
+                {
+                    id: 'e1',
+                    name: 'Uni Ex',
+                    sets: 1,
+                    reps: 1,
+                    cadence: { eccentric: 1, eccentricPause: 0, concentric: 1, concentricPause: 0 },
+                    restSet: 10,
+                    isUnilateral: true,
+                    unilateralTransition: 5,
+                    prepTime: 5,
+                    failureMode: false // Explicitly disable failure mode to ensure auto-finish
+                }
+            ]
+        };
+
+        const { result } = renderHook(() => useCadenceTimer());
+
+        act(() => {
+            result.current.start(unilateralWorkout);
+            vi.advanceTimersByTime(0);
+        });
+
+        // 1. Initial State: PREP, Side LEFT
+        expect(result.current.state.phase).toBe(PHASE.PREP);
+        expect(result.current.state.currentSide).toBe('LEFT');
+
+        act(() => {
+            result.current.skip(); // Skip Prep
+        });
+
+        // 2. Work Phase (Left)
+        // Eccentric (1s) -> Bottom(0) -> Concentric(1s)
+        expect(result.current.state.currentSide).toBe('LEFT');
+        expect(result.current.state.phase).toBe(PHASE.ECCENTRIC);
+
+        // Advance 2.2s to complete rep
+        act(() => {
+            vi.advanceTimersByTime(2200);
+        });
+
+        // 3. Should transition to PREP (as Unilateral Transition) with Side RIGHT
+        // If this fails (e.g. remains in Work), then finishSet wasn't called.
+        // If this fails (e.g. goes to REST_SET), then side logic failed.
+
+        expect(result.current.state.phase).toBe(PHASE.PREP);
+        expect(result.current.state.timeLeft).toBe(5);
+        expect(result.current.state.currentSide).toBe('RIGHT');
+
+        act(() => {
+            result.current.skip(); // Skip Transition
+        });
+
+        // 4. Work Phase (Right)
+        expect(result.current.state.currentSide).toBe('RIGHT');
+        expect(result.current.state.phase).toBe(PHASE.ECCENTRIC);
+
+        act(() => {
+            vi.advanceTimersByTime(2200);
+        });
+
+        // 5. FINISHED
+        expect(result.current.state.status).toBe('FINISHED');
+        expect(result.current.state.currentSide).toBeNull();
+    });
+
+    it('restores currentSide to LEFT after REST_SET in multi-set unilateral exercise', () => {
+        const multiSetWorkout = {
+            id: 'uni-multi',
+            name: 'Uni Multi',
+            exercises: [
+                {
+                    id: 'e1',
+                    name: 'Uni Multi',
+                    sets: 2,
+                    reps: 1,
+                    cadence: { eccentric: 1, eccentricPause: 0, concentric: 1, concentricPause: 0 },
+                    restSet: 10,
+                    isUnilateral: true,
+                    unilateralTransition: 5,
+                    prepTime: 5,
+                    failureMode: false
+                }
+            ]
+        };
+
+        const { result } = renderHook(() => useCadenceTimer());
+
+        act(() => {
+            result.current.start(multiSetWorkout);
+            vi.advanceTimersByTime(0);
+            result.current.skip(); // Skip Prep (Left)
+        });
+
+        // Finish Left
+        act(() => { vi.advanceTimersByTime(2200); });
+
+        // Check transition to Right
+        expect(result.current.state.currentSide).toBe('RIGHT');
+        expect(result.current.state.phase).toBe(PHASE.PREP);
+
+        // Skip Transition (to Right)
+        act(() => { result.current.skip(); });
+
+        // Finish Right
+        act(() => { vi.advanceTimersByTime(2200); });
+
+        // Should be REST_SET
+        expect(result.current.state.phase).toBe(PHASE.REST_SET);
+        expect(result.current.state.currentSide).toBeNull();
+
+        // Advance Rest
+        act(() => {
+            vi.advanceTimersByTime(11000); // 10s rest + 1s buffer
+        });
+
+        // Should be Set 2. Side LEFT.
+        // Note: Transitions to ECCENTRIC directly (skips PREP in standard flow)
+        expect(result.current.state.setNumber).toBe(2);
+        expect(result.current.state.phase).toBe(PHASE.ECCENTRIC);
+        expect(result.current.state.currentSide).toBe('LEFT');
+    });
 });

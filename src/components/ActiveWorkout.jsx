@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useCadenceTimer, PHASE } from '../hooks/useCadenceTimer';
 import { useTTS } from '../hooks/useTTS';
-import { Pause, Play, SkipForward, X, AlertTriangle } from 'lucide-react';
+import { Pause, Play, SkipForward, X, AlertTriangle, ArrowLeftRight } from 'lucide-react';
 import NumberInput from './common/NumberInput';
 import WorkoutSummary from './WorkoutSummary';
 
 export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
-    const { state, start, pause, resume, skip, registerFailure, finishWorkout, logSetData } = useCadenceTimer();
+    const { state, start, pause, resume, skip, registerFailure, finishWorkout, logSetData, setStartSide } = useCadenceTimer();
     const { speak, playBeep } = useTTS();
     const prevPhaseRef = useRef(state.phase);
     const prevTimeRef = useRef(state.timeLeft);
@@ -76,13 +76,24 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
 
                     if (lastEntry) {
                         const finalWeight = !isNaN(wVal) ? wVal : (lastEntry.weight || 0);
-                        const finalReps = !isNaN(rVal) ? rVal : lastEntry.reps;
 
                         const ex = workout.exercises.find(e => e.id === exId);
-                        const isIso = ex && ex.isIsometric;
 
-                        // Save
-                        logSetData(exId, lastEntry.setNumber, isIso ? 0 : finalReps, finalWeight, isIso ? finalReps : 0);
+                        // Unilateral Save
+                        if (ex && ex.isUnilateral) {
+                            const rLeft = parseInt(vals.repsLeft);
+                            const rRight = parseInt(vals.repsRight);
+
+                            // We need to update BOTH entries (Left and Right) for this set.
+                            // logSetData handles finding the correct entry by Side.
+                            if (!isNaN(rLeft)) logSetData(exId, lastEntry.setNumber, rLeft, finalWeight, 0, 'LEFT');
+                            if (!isNaN(rRight)) logSetData(exId, lastEntry.setNumber, rRight, finalWeight, 0, 'RIGHT');
+                        } else {
+                            // Standard Save
+                            const finalReps = !isNaN(rVal) ? rVal : lastEntry.reps;
+                            const isIso = ex && ex.isIsometric;
+                            logSetData(exId, lastEntry.setNumber, isIso ? 0 : finalReps, finalWeight, isIso ? finalReps : 0);
+                        }
                     }
                 });
             }
@@ -114,20 +125,44 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
 
                 targetExercises.forEach(ex => {
                     const logs = state.weightData.filter(w => w.exerciseId === ex.id);
-                    const lastLog = logs[logs.length - 1]; // The placeholder added in finishSet
 
-                    let sWeight = '';
-                    let sReps = '';
+                    if (ex.isUnilateral) {
+                        // Find last complete set (which has both L and R? or just whatever is last)
+                        // We assume specific set we just finished.
+                        // But for Unilateral, we might have 2 separate entries for the same set.
+                        // We want to load them into 'repsLeft' and 'repsRight'.
+                        const lastLog = logs[logs.length - 1];
+                        if (lastLog) {
+                            const targetSet = lastLog.setNumber; // The set we just finished
+                            const setLogs = logs.filter(l => l.setNumber === targetSet);
 
-                    if (lastLog) {
-                        sWeight = lastLog.weight || '';
-                        // If weight 0, try finding previous valid set (index - 2)
-                        if (!sWeight && logs.length >= 2) {
-                            sWeight = logs[logs.length - 2].weight;
+                            const leftLog = setLogs.find(l => l.side === 'LEFT');
+                            const rightLog = setLogs.find(l => l.side === 'RIGHT');
+
+                            // Weight is usually same, take from any
+                            const sWeight = leftLog ? leftLog.weight : (rightLog ? rightLog.weight : '');
+                            const sRepsLeft = leftLog ? leftLog.reps : '';
+                            const sRepsRight = rightLog ? rightLog.reps : '';
+
+                            newInputs[ex.id] = { weight: sWeight, repsLeft: sRepsLeft, repsRight: sRepsRight };
+                        } else {
+                            newInputs[ex.id] = { weight: '', repsLeft: '', repsRight: '' };
                         }
-                        sReps = ex.isIsometric ? Math.floor(lastLog.time) : lastLog.reps;
+                    } else {
+                        const lastLog = logs[logs.length - 1]; // The placeholder added in finishSet
+                        let sWeight = '';
+                        let sReps = '';
+
+                        if (lastLog) {
+                            sWeight = lastLog.weight || '';
+                            // If weight 0, try finding previous valid set (index - 2)
+                            if (!sWeight && logs.length >= 2) {
+                                sWeight = logs[logs.length - 2].weight;
+                            }
+                            sReps = ex.isIsometric ? Math.floor(lastLog.time) : lastLog.reps;
+                        }
+                        newInputs[ex.id] = { weight: sWeight, reps: sReps };
                     }
-                    newInputs[ex.id] = { weight: sWeight, reps: sReps };
                 });
 
                 setTimeout(() => {
@@ -179,15 +214,23 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
 
         if (lastEntry) {
             const wVal = parseFloat(vals.weight);
-            const rVal = parseInt(vals.reps);
-
             const finalWeight = !isNaN(wVal) ? wVal : lastEntry.weight;
-            const finalReps = !isNaN(rVal) ? rVal : lastEntry.reps;
 
             const ex = workout.exercises.find(e => e.id === exId);
-            const isIso = ex && ex.isIsometric;
 
-            logSetData(exId, lastEntry.setNumber, isIso ? 0 : finalReps, finalWeight, isIso ? finalReps : 0);
+            if (ex && ex.isUnilateral) {
+                const rLeft = parseInt(vals.repsLeft);
+                const rRight = parseInt(vals.repsRight);
+
+                if (!isNaN(rLeft)) logSetData(exId, lastEntry.setNumber, rLeft, finalWeight, 0, 'LEFT');
+                if (!isNaN(rRight)) logSetData(exId, lastEntry.setNumber, rRight, finalWeight, 0, 'RIGHT');
+            } else {
+                const rVal = parseInt(vals.reps);
+                const finalReps = !isNaN(rVal) ? rVal : lastEntry.reps;
+                const isIso = ex && ex.isIsometric;
+
+                logSetData(exId, lastEntry.setNumber, isIso ? 0 : finalReps, finalWeight, isIso ? finalReps : 0);
+            }
         }
     };
 
@@ -279,7 +322,24 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
                 <div style={{ position: 'absolute', top: 20, left: 0, right: 0, padding: '0 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                         <span style={{ fontSize: '1.2em', fontWeight: 600 }}>{currentExercise.name}</span>
-                        <span style={{ fontSize: '1.2em' }}>Série {state.setNumber}/{currentExercise.sets}</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ fontSize: '1.2em' }}>Série {state.setNumber}/{currentExercise.sets}</span>
+                            {/* Side Indicator */}
+                            {currentExercise.isUnilateral && state.currentSide && (
+                                <span style={{
+                                    fontSize: '1.5em',
+                                    padding: '4px 12px',
+                                    background: state.currentSide === 'LEFT' ? 'var(--color-primary)' : '#ff9800',
+                                    color: 'black',
+                                    borderRadius: '6px',
+                                    fontWeight: '900',
+                                    boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                                    marginLeft: '8px'
+                                }}>
+                                    {state.currentSide === 'LEFT' ? 'LADO ESQ' : 'LADO DIR'}
+                                </span>
+                            )}
+                        </div>
                     </div>
 
                     {/* Global Timer */}
@@ -346,15 +406,52 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
 
                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                                         <label style={{ fontSize: '0.9rem', marginBottom: '4px' }}>
-                                            {ex.isIsometric ? 'Tempo (s)' : 'Reps'}
+                                            {ex.isIsometric ? 'Tempo (s)' : (ex.isUnilateral ? 'Reps (Esq)' : 'Reps')}
                                         </label>
                                         <NumberInput
-                                            value={inputValues[ex.id]?.reps || ''}
-                                            onChange={(v) => handleInputSave(ex.id, 'reps', v)}
+                                            value={ex.isUnilateral ? (inputValues[ex.id]?.repsLeft || '') : (inputValues[ex.id]?.reps || '')}
+                                            onChange={(v) => handleInputSave(ex.id, ex.isUnilateral ? 'repsLeft' : 'reps', v)}
                                             placeholder="0"
                                             compact={true}
                                         />
                                     </div>
+
+                                    {ex.isUnilateral && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                            <label style={{ fontSize: '0.9rem', marginBottom: '4px' }}>
+                                                Reps (Dir)
+                                            </label>
+                                            <NumberInput
+                                                value={inputValues[ex.id]?.repsRight || ''}
+                                                onChange={(v) => handleInputSave(ex.id, 'repsRight', v)}
+                                                placeholder="0"
+                                                compact={true}
+                                            />
+                                        </div>
+                                    )}
+
+                                    {/* Unilateral Invert Toggle */}
+                                    {ex.isUnilateral && (
+                                        <button
+                                            onClick={() => setStartSide(state.nextStartSide === 'LEFT' ? 'RIGHT' : 'LEFT')}
+                                            style={{
+                                                marginTop: '8px',
+                                                fontSize: '0.8em',
+                                                padding: '6px 12px',
+                                                background: '#333',
+                                                color: 'white',
+                                                border: '1px solid #555',
+                                                borderRadius: '4px',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px'
+                                            }}
+                                        >
+                                            <ArrowLeftRight size={14} />
+                                            <span>Próx: {state.nextStartSide === 'LEFT' ? 'Esq' : 'Dir'}</span>
+                                        </button>
+                                    )}
                                 </div>
                             ))}
                         </div>

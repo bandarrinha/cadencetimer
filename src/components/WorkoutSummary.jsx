@@ -65,7 +65,9 @@ export default function WorkoutSummary({ workout, weightData, onSave, onDiscard,
             const sameId = p.exerciseId && p.exerciseId === currentEntry.exerciseId;
             const sameName = currentExName && p.exerciseName === currentExName;
 
-            return sameSet && (sameId || sameName);
+            const sameSide = (p.side || null) === (currentEntry.side || null);
+
+            return sameSet && (sameId || sameName) && sameSide;
         });
 
         if (!prev) return {};
@@ -223,7 +225,14 @@ function SummaryRow({ entry, idx, onUpdate, comparison }) {
                 gridTemplateColumns: 'min-content 1fr min-content',
                 alignItems: 'center', gap: '8px'
             }}>
-                <div style={{ fontWeight: 'bold', color: '#666', fontSize: '0.9em' }}>#{entry.setNumber}</div>
+                <div style={{ fontWeight: 'bold', color: '#666', fontSize: '0.9em', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <span>#{entry.setNumber}</span>
+                    {entry.side && (
+                        <span style={{ fontSize: '0.6em', background: entry.side === 'LEFT' ? 'var(--color-primary)' : '#ff9800', color: 'black', padding: '1px 3px', borderRadius: '2px', fontWeight: 'bold' }}>
+                            {entry.side === 'LEFT' ? 'E' : 'D'}
+                        </span>
+                    )}
+                </div>
 
                 {isEditing ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center', justifyContent: 'center' }}>
