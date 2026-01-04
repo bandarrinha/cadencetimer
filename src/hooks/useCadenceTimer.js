@@ -31,7 +31,7 @@ const initialState = {
     nextStartSide: 'LEFT' // Usage: which side to start with on next set
 };
 
-function timerReducer(state, action) {
+export function timerReducer(state, action) {
     switch (action.type) {
         case 'INIT':
             return {
@@ -54,8 +54,8 @@ function timerReducer(state, action) {
                 exerciseIndex: 0,
                 startTime: Date.now(), // Capture start time
                 finishTime: null,
-                currentSide: state.workout.exercises[0].isUnilateral ? 'LEFT' : null,
-                nextStartSide: 'LEFT'
+                currentSide: state.workout.exercises[0].isUnilateral ? (state.workout.exercises[0].startSide || 'LEFT') : null,
+                nextStartSide: state.workout.exercises[0].isUnilateral ? (state.workout.exercises[0].startSide || 'LEFT') : 'LEFT'
             };
         case 'PAUSE':
             return { ...state, status: 'PAUSED' };
@@ -191,8 +191,8 @@ function transitionPhase(state) {
             setNumber: 1,
             repNumber: 0,
             actualReps: 0,
-            currentSide: nextExercise.isUnilateral ? 'LEFT' : null,
-            nextStartSide: 'LEFT'
+            currentSide: nextExercise.isUnilateral ? (nextExercise.startSide || 'LEFT') : null,
+            nextStartSide: nextExercise.isUnilateral ? (nextExercise.startSide || 'LEFT') : 'LEFT'
         };
     }
 
@@ -232,7 +232,8 @@ function transitionPhase(state) {
                     // setNumber is already correct (N+1)
                     repNumber: 0,
                     actualReps: 0,
-                    currentSide: targetExercise.isUnilateral ? (state.nextStartSide || 'LEFT') : null
+                    currentSide: targetExercise.isUnilateral ? (targetExercise.startSide || 'LEFT') : null,
+                    nextStartSide: targetExercise.isUnilateral ? (targetExercise.startSide || 'LEFT') : 'LEFT'
                 };
             }
         }
@@ -398,7 +399,7 @@ function finishSet(state) {
         // Ex 1 Finished -> Go to Ex 2
         const nextExercise = workout.exercises[exerciseIndex + 1];
         const transitionTime = nextExercise.prepTime || 5;
-        const nextSide = nextExercise.isUnilateral ? (state.nextStartSide || 'LEFT') : null; // Should Bi-Set share start side? Probably.
+        const nextSide = nextExercise.isUnilateral ? (nextExercise.startSide || 'LEFT') : null;
 
         return {
             ...state,
@@ -408,7 +409,8 @@ function finishSet(state) {
             timeLeft: transitionTime,
             phaseDuration: transitionTime,
             setNumber: setNumber, // Keep set number for Bi-Set
-            currentSide: nextSide
+            currentSide: nextSide,
+            nextStartSide: nextExercise.isUnilateral ? (nextExercise.startSide || 'LEFT') : 'LEFT'
         };
     }
 

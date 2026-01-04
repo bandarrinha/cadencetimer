@@ -14,7 +14,8 @@ const DEFAULT_EXERCISE = {
     restSet: 45,
     restExercise: 60,
     biSetId: null, // Added for grouping
-    prepTime: 5 // Added for configurable prep time
+    prepTime: 5, // Added for configurable prep time
+    startSide: 'LEFT' // Added: Default starting side
 };
 
 const DEFAULT_WORKOUT = {
@@ -32,6 +33,7 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
         parsed.forEach(w => w.exercises.forEach(e => {
             if (e.biSetId === undefined) e.biSetId = null;
             if (e.prepTime === undefined) e.prepTime = 5;
+            if (e.startSide === undefined) e.startSide = 'LEFT';
         }));
         return parsed;
     });
@@ -303,15 +305,29 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                                     </label>
 
                                     {ex.isUnilateral && (
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9em', color: '#ccc' }}>
-                                            Transição entre Lados (s):
-                                            <input
-                                                type="number"
-                                                value={ex.unilateralTransition || 5}
-                                                onChange={(e) => updateExercise(idx, 'unilateralTransition', parseInt(e.target.value))}
-                                                style={{ ...inputStyle, width: '60px', marginTop: 0 }}
-                                            />
-                                        </label>
+                                        <>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9em', color: '#ccc' }}>
+                                                Transição entre Lados (s):
+                                                <input
+                                                    type="number"
+                                                    value={ex.unilateralTransition || 5}
+                                                    onChange={(e) => updateExercise(idx, 'unilateralTransition', parseInt(e.target.value))}
+                                                    style={{ ...inputStyle, width: '60px', marginTop: 0 }}
+                                                />
+                                            </label>
+
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9em', color: '#ccc', marginLeft: '12px' }}>
+                                                Começar por:
+                                                <select
+                                                    value={ex.startSide || 'LEFT'}
+                                                    onChange={(e) => updateExercise(idx, 'startSide', e.target.value)}
+                                                    style={{ ...inputStyle, width: 'auto', marginTop: 0 }}
+                                                >
+                                                    <option value="LEFT">Esquerda</option>
+                                                    <option value="RIGHT">Direita</option>
+                                                </select>
+                                            </label>
+                                        </>
                                     )}
                                 </div>
                             </div>
