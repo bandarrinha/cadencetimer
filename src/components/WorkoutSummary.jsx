@@ -8,9 +8,11 @@ export default function WorkoutSummary({ workout, weightData, onSave, onDiscard,
     const [data, setData] = useState(weightData);
 
     const updateEntry = (index, field, value) => {
-        const newData = [...data];
-        newData[index] = { ...newData[index], [field]: value };
-        setData(newData);
+        setData(prevData => {
+            const newData = [...prevData];
+            newData[index] = { ...newData[index], [field]: value };
+            return newData;
+        });
     };
 
     // Calculate Duration
