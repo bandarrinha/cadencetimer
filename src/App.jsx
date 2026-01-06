@@ -38,7 +38,7 @@ function App() {
     setView('ACTIVE');
   };
 
-  const handleFinishWorkout = (weightData) => {
+  const handleFinishWorkout = (weightData, duration) => {
     // Save to History
     const history = JSON.parse(localStorage.getItem('cadence_history') || '[]');
     const date = new Date().toISOString();
@@ -56,7 +56,8 @@ function App() {
         weight: d.weight,
         time: d.time,
         biSetId: d.biSetId || null,
-        side: d.side || null
+        side: d.side || null,
+        duration: duration || 0
       };
     });
 

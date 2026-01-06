@@ -105,7 +105,14 @@ export default function WorkoutHistory({ onBack }) {
                             letterSpacing: '1px',
                             fontSize: '1em'
                         }}>
-                            {session.dateWorkout}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span>{session.dateWorkout}</span>
+                                {session.entries[0]?.duration > 0 && (
+                                    <span style={{ fontSize: '0.8em', opacity: 0.7, background: '#333', padding: '2px 8px', borderRadius: '4px' }}>
+                                        ⏱ {new Date(session.entries[0].duration).toISOString().substr(11, 8)}
+                                    </span>
+                                )}
+                            </div>
                         </h3>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>

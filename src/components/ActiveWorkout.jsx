@@ -345,7 +345,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
                 <WorkoutSummary
                     workout={workout}
                     weightData={state.weightData}
-                    onSave={(finalData) => onFinishWorkout(finalData)}
+                    onSave={(finalData, duration) => onFinishWorkout(finalData, duration)}
                     onDiscard={onExit}
                     startTime={state.startTime}
                     finishTime={state.finishTime}

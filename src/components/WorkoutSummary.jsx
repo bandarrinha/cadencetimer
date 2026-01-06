@@ -185,7 +185,7 @@ export default function WorkoutSummary({ workout, weightData, onSave, onDiscard,
             </div>
 
             <button
-                onClick={() => onSave(data)}
+                onClick={() => onSave(data, (finishTime && startTime) ? (finishTime - startTime) : 0)}
                 style={{
                     background: 'var(--color-primary)', color: 'black',
                     padding: '16px 32px', fontSize: '1.2em', fontWeight: 'bold',
