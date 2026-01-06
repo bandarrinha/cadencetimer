@@ -274,15 +274,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
 
     // Identify exercises to display in Rest
     // Can be multiple (Bi-Set) or single
-    // We reuse logic from Effect to be safe or just use inputValues keys? 
-    // Effect runs on mount of phase. inputValues populated then.
-    // If inputValues is empty, it means effect hasn't run or something.
-    // Better to derive from state again for rendering to be instant.
-
-    // We need to render based on what we calculated in the Effect. 
-    // But Render happens before Effect if we just switched.
-    // It's safer to recalculate the list of "Active Exercises for Input".
-
+    // Be safe and recalculate
     let activeInputExercises = [currentExercise];
     if (isResting) {
         if (currentExercise.biSetId && workout.exercises[state.exerciseIndex - 1]?.biSetId === currentExercise.biSetId) {
@@ -411,7 +403,8 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
                 </div>
 
                 {/* Primary Display: Cadence Countdown (Big) */}
-                {!isResting && state.phase !== PHASE.FINISHED && state.phase !== PHASE.PREP && (
+                {/* MODIFIED: PREP Phase is now INCLUDED here */}
+                {(!isResting && state.phase !== PHASE.FINISHED) && (
                     <div style={{
                         fontSize: '12rem', fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums',
                         transition: 'all 0.3s ease',
@@ -425,6 +418,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
                 )}
 
                 {/* Secondary Display: Executed Reps/Time (Small, with Feedback) */}
+                {/* Keep Prep HIDDEN for Reps */}
                 {(!isResting && state.phase !== PHASE.FINISHED && state.phase !== PHASE.PREP) && (
                     <div style={{
                         marginTop: '10px',
@@ -470,6 +464,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
                         )}
                     </div>
                 )}
+
 
                 {/* Rest UI with Inputs */}
                 {isResting && (
