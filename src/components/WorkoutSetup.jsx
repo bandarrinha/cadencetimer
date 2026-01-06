@@ -70,7 +70,7 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
 
     const updateCadence = (index, field, value) => {
         const newExercises = [...activeWorkout.exercises];
-        newExercises[index].cadence[field] = parseInt(value) || 0;
+        newExercises[index].cadence[field] = value === '' ? '' : (parseInt(value) || 0);
         updateActiveWorkout({ ...activeWorkout, exercises: newExercises });
     };
 
@@ -225,7 +225,7 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                                     <input
                                         type="number"
                                         value={ex.sets}
-                                        onChange={(e) => updateExercise(idx, 'sets', parseInt(e.target.value) || 0)}
+                                        onChange={(e) => updateExercise(idx, 'sets', e.target.value === '' ? '' : parseInt(e.target.value))}
                                         style={inputStyle}
                                     />
                                 </div>
@@ -236,7 +236,7 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                                     <input
                                         type="number"
                                         value={ex.reps}
-                                        onChange={(e) => updateExercise(idx, 'reps', parseInt(e.target.value) || 0)}
+                                        onChange={(e) => updateExercise(idx, 'reps', e.target.value === '' ? '' : parseInt(e.target.value))}
                                         style={inputStyle}
                                     />
                                 </div>
@@ -282,16 +282,16 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
                                 <label style={{ fontSize: '0.9em', color: '#ccc' }}>
                                     Preparo
-                                    <input type="number" value={ex.prepTime || 5} onChange={(e) => updateExercise(idx, 'prepTime', parseInt(e.target.value))} style={inputStyle} />
+                                    <input type="number" value={ex.prepTime} onChange={(e) => updateExercise(idx, 'prepTime', e.target.value === '' ? '' : parseInt(e.target.value))} style={inputStyle} />
                                 </label>
                                 <label style={{ fontSize: '0.9em', color: '#ccc' }}>
                                     {isLinkedWithNext || isLinkedWithPrev ? 'Entre Séries (Bi-Set)' : 'Entre Séries'}
-                                    <input type="number" value={ex.restSet} onChange={(e) => updateExercise(idx, 'restSet', parseInt(e.target.value))} style={inputStyle} />
+                                    <input type="number" value={ex.restSet} onChange={(e) => updateExercise(idx, 'restSet', e.target.value === '' ? '' : parseInt(e.target.value))} style={inputStyle} />
                                 </label>
                                 {!isLinkedWithNext && (
                                     <label style={{ fontSize: '0.9em', color: '#ccc' }}>
                                         {isLinkedWithNext ? 'Transição (Prep)' : (isLinkedWithPrev ? 'Descanso Final' : 'Entre Exercícios')}
-                                        <input type="number" value={ex.restExercise} onChange={(e) => updateExercise(idx, 'restExercise', parseInt(e.target.value))} style={inputStyle} />
+                                        <input type="number" value={ex.restExercise} onChange={(e) => updateExercise(idx, 'restExercise', e.target.value === '' ? '' : parseInt(e.target.value))} style={inputStyle} />
                                     </label>
                                 )}
                             </div>
@@ -310,8 +310,8 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                                                 Transição entre Lados (s):
                                                 <input
                                                     type="number"
-                                                    value={ex.unilateralTransition || 5}
-                                                    onChange={(e) => updateExercise(idx, 'unilateralTransition', parseInt(e.target.value))}
+                                                    value={ex.unilateralTransition === undefined ? 5 : ex.unilateralTransition}
+                                                    onChange={(e) => updateExercise(idx, 'unilateralTransition', e.target.value === '' ? '' : parseInt(e.target.value))}
                                                     style={{ ...inputStyle, width: '60px', marginTop: 0 }}
                                                 />
                                             </label>
