@@ -341,7 +341,8 @@ function finishSet(state) {
         exerciseId: currentExercise.id,
         setNumber,
         reps: currentExercise.isIsometric ? 0 : actualReps,
-        time: currentExercise.isIsometric ? state.isometricTime : 0,
+        time: currentExercise.isIsometric ? Math.floor(state.isometricTime) : 0,
+
         weight: suggestedWeight,
         biSetId: currentExercise.biSetId || null,
         side: state.currentSide || null
