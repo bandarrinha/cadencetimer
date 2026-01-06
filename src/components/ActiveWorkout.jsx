@@ -291,6 +291,61 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
     }
 
 
+
+    // Visual Feedback Logic
+    let feedbackStatus = 'BELOW'; // 'BELOW', 'IN_RANGE', 'ABOVE'
+    const isExerciseRunning = !isResting && state.phase !== PHASE.FINISHED && state.phase !== PHASE.PREP;
+
+    if (isExerciseRunning && currentExercise.failureMode) {
+        const completed = currentExercise.isIsometric ? Math.floor(state.isometricTime) : state.actualReps;
+
+        const min = currentExercise.repsMin || currentExercise.reps || 0;
+        const max = currentExercise.repsMax || currentExercise.reps || 0;
+
+        if (completed < min) feedbackStatus = 'BELOW';
+        else if (completed <= max) feedbackStatus = 'IN_RANGE';
+        else feedbackStatus = 'ABOVE';
+    }
+
+    const feedbackStyle = (() => {
+        if (!currentExercise.failureMode) return {};
+        if (feedbackStatus === 'IN_RANGE') {
+            return {
+                background: 'rgba(255, 255, 255, 0.9)',
+                color: '#2e7d32', // Dark Green
+                padding: '4px 30px',
+                borderRadius: '50px',
+                boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
+            };
+        }
+        if (feedbackStatus === 'ABOVE') {
+            return {
+                background: 'rgba(255, 255, 255, 0.9)',
+                color: '#6200ea', // Deep Purple (warning/exceeded)
+                padding: '4px 30px',
+                borderRadius: '50px',
+                boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
+            };
+        }
+        return {};
+    })();
+
+    // Logic to generate advice for Rest screen
+    const getAdvice = (ex) => {
+        if (!ex.failureMode) return null;
+        const logs = state.weightData.filter(w => w.exerciseId === ex.id);
+        const lastLog = logs[logs.length - 1];
+        if (!lastLog) return null;
+
+        const val = ex.isIsometric ? lastLog.time : lastLog.reps;
+        const min = ex.repsMin || ex.reps;
+        const max = ex.repsMax || ex.reps;
+
+        if (val < min) return "Diminuir Carga ⬇️";
+        if (val > max) return "Aumentar Carga ⬆️";
+        return "Manter Carga ✅";
+    };
+
     // If Summary is active, render it overlaying everything
     if (state.status === 'FINISHED') {
         return (
@@ -355,13 +410,64 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
                     )}
                 </div>
 
-                {/* Main Counter */}
-                {!isResting && (
-                    <div style={{ fontSize: '12rem', fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-                        {currentExercise.isIsometric && currentExercise.failureMode && state.timeLeft > 60
-                            ? Math.floor(state.isometricTime)
+                {/* Primary Display: Cadence Countdown (Big) */}
+                {!isResting && state.phase !== PHASE.FINISHED && state.phase !== PHASE.PREP && (
+                    <div style={{
+                        fontSize: '12rem', fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums',
+                        transition: 'all 0.3s ease',
+                        marginBottom: '10px'
+                    }}>
+                        {currentExercise.isIsometric && currentExercise.failureMode && state.timeLeft <= 0
+                            ? '+' + Math.abs(Math.floor(state.timeLeft)) // Overtime Display
                             : Math.ceil(state.timeLeft)
                         }
+                    </div>
+                )}
+
+                {/* Secondary Display: Executed Reps/Time (Small, with Feedback) */}
+                {(!isResting && state.phase !== PHASE.FINISHED && state.phase !== PHASE.PREP) && (
+                    <div style={{
+                        marginTop: '10px',
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px'
+                    }}>
+                        <div style={{
+                            fontSize: '3rem', fontWeight: 'bold',
+                            transition: 'all 0.3s ease',
+                            textAlign: 'center',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            ...feedbackStyle // Highlight applied here
+                        }}>
+                            {currentExercise.isIsometric
+                                ? Math.floor(state.isometricTime) + 's'
+                                : (
+                                    <span>
+                                        Rep {state.actualReps + 1}
+                                    </span>
+                                )
+                            }
+                        </div>
+
+                        {/* Meta Info Below Reps */}
+                        {(currentExercise.failureMode || !currentExercise.isIsometric) && (
+                            <div style={{ opacity: 0.7, fontSize: '1.2em' }}>
+                                {currentExercise.failureMode
+                                    ? `Meta: ${currentExercise.repsMin || currentExercise.reps} - ${currentExercise.repsMax || currentExercise.reps}`
+                                    : `Meta: ${currentExercise.reps}`
+                                }
+                            </div>
+                        )}
+
+                        {/* Feedback Label Badge */}
+                        {feedbackStatus !== 'BELOW' && currentExercise.failureMode && (
+                            <div style={{
+                                fontSize: '1.2rem', fontWeight: 'bold',
+                                color: feedbackStatus === 'IN_RANGE' ? '#1b5e20' : '#4a148c',
+                                background: 'rgba(255,255,255,0.7)',
+                                padding: '2px 12px', borderRadius: '8px'
+                            }}>
+                                {feedbackStatus === 'IN_RANGE' ? 'DENTRO DA META' : 'ACIMA DA META'}
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -378,82 +484,97 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
                             width: '100%',
                             flexWrap: 'wrap'
                         }}>
-                            {activeInputExercises.map(ex => (
-                                <div key={ex.id} style={{
-                                    background: 'rgba(255,255,255,0.9)',
-                                    padding: '16px',
-                                    borderRadius: '16px',
-                                    color: 'black',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '12px',
-                                    flex: 1,
-                                    minWidth: '140px'
-                                }}>
-                                    <div style={{ fontWeight: 'bold', fontSize: '0.9em', textAlign: 'center', marginBottom: '4px', borderBottom: '1px solid #ddd', paddingBottom: '4px' }}>
-                                        {ex.name}
-                                    </div>
+                            {activeInputExercises.map(ex => {
+                                const advice = getAdvice(ex);
+                                return (
+                                    <div key={ex.id} style={{
+                                        background: 'rgba(255,255,255,0.9)',
+                                        padding: '16px',
+                                        borderRadius: '16px',
+                                        color: 'black',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '12px',
+                                        flex: 1,
+                                        minWidth: '140px'
+                                    }}>
+                                        <div style={{ fontWeight: 'bold', fontSize: '0.9em', textAlign: 'center', marginBottom: '4px', borderBottom: '1px solid #ddd', paddingBottom: '4px' }}>
+                                            {ex.name}
+                                        </div>
 
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                        <label style={{ fontSize: '0.9rem', marginBottom: '4px' }}>Carga (kg)</label>
-                                        <NumberInput
-                                            value={inputValues[ex.id]?.weight || ''}
-                                            onChange={(v) => handleInputSave(ex.id, 'weight', v)}
-                                            placeholder="0"
-                                            compact={true}
-                                        />
-                                    </div>
+                                        {/* Advice Badge */}
+                                        {advice && (
+                                            <div style={{
+                                                textAlign: 'center', fontSize: '0.8em',
+                                                background: advice.includes('Manter') ? '#e8f5e9' : (advice.includes('Diminuir') ? '#ffebee' : '#e3f2fd'),
+                                                color: advice.includes('Manter') ? '#2e7d32' : (advice.includes('Diminuir') ? '#c62828' : '#1565c0'),
+                                                padding: '4px', borderRadius: '4px', fontWeight: 'bold'
+                                            }}>
+                                                {advice}
+                                            </div>
+                                        )}
 
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                        <label style={{ fontSize: '0.9rem', marginBottom: '4px' }}>
-                                            {ex.isIsometric ? 'Tempo (s)' : (ex.isUnilateral ? 'Reps (Esq)' : 'Reps')}
-                                        </label>
-                                        <NumberInput
-                                            value={ex.isUnilateral ? (inputValues[ex.id]?.repsLeft || '') : (inputValues[ex.id]?.reps || '')}
-                                            onChange={(v) => handleInputSave(ex.id, ex.isUnilateral ? 'repsLeft' : 'reps', v)}
-                                            placeholder="0"
-                                            compact={true}
-                                        />
-                                    </div>
-
-                                    {ex.isUnilateral && (
                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                            <label style={{ fontSize: '0.9rem', marginBottom: '4px' }}>
-                                                Reps (Dir)
-                                            </label>
+                                            <label style={{ fontSize: '0.9rem', marginBottom: '4px' }}>Carga (kg)</label>
                                             <NumberInput
-                                                value={inputValues[ex.id]?.repsRight || ''}
-                                                onChange={(v) => handleInputSave(ex.id, 'repsRight', v)}
+                                                value={inputValues[ex.id]?.weight || ''}
+                                                onChange={(v) => handleInputSave(ex.id, 'weight', v)}
                                                 placeholder="0"
                                                 compact={true}
                                             />
                                         </div>
-                                    )}
 
-                                    {/* Unilateral Invert Toggle */}
-                                    {ex.isUnilateral && (
-                                        <button
-                                            onClick={() => setStartSide(state.nextStartSide === 'LEFT' ? 'RIGHT' : 'LEFT')}
-                                            style={{
-                                                marginTop: '8px',
-                                                fontSize: '0.8em',
-                                                padding: '6px 12px',
-                                                background: '#333',
-                                                color: 'white',
-                                                border: '1px solid #555',
-                                                borderRadius: '4px',
-                                                cursor: 'pointer',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '6px'
-                                            }}
-                                        >
-                                            <ArrowLeftRight size={14} />
-                                            <span>Próx: {state.nextStartSide === 'LEFT' ? 'Esq' : 'Dir'}</span>
-                                        </button>
-                                    )}
-                                </div>
-                            ))}
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                            <label style={{ fontSize: '0.9rem', marginBottom: '4px' }}>
+                                                {ex.isIsometric ? 'Tempo (s)' : (ex.isUnilateral ? 'Reps (Esq)' : 'Reps')}
+                                            </label>
+                                            <NumberInput
+                                                value={ex.isUnilateral ? (inputValues[ex.id]?.repsLeft || '') : (inputValues[ex.id]?.reps || '')}
+                                                onChange={(v) => handleInputSave(ex.id, ex.isUnilateral ? 'repsLeft' : 'reps', v)}
+                                                placeholder="0"
+                                                compact={true}
+                                            />
+                                        </div>
+
+                                        {ex.isUnilateral && (
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                                <label style={{ fontSize: '0.9rem', marginBottom: '4px' }}>
+                                                    Reps (Dir)
+                                                </label>
+                                                <NumberInput
+                                                    value={inputValues[ex.id]?.repsRight || ''}
+                                                    onChange={(v) => handleInputSave(ex.id, 'repsRight', v)}
+                                                    placeholder="0"
+                                                    compact={true}
+                                                />
+                                            </div>
+                                        )}
+
+                                        {/* Unilateral Invert Toggle */}
+                                        {ex.isUnilateral && (
+                                            <button
+                                                onClick={() => setStartSide(state.nextStartSide === 'LEFT' ? 'RIGHT' : 'LEFT')}
+                                                style={{
+                                                    marginTop: '8px',
+                                                    fontSize: '0.8em',
+                                                    padding: '6px 12px',
+                                                    background: '#333',
+                                                    color: 'white',
+                                                    border: '1px solid #555',
+                                                    borderRadius: '4px',
+                                                    cursor: 'pointer',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px'
+                                                }}
+                                            >
+                                                <ArrowLeftRight size={14} />
+                                                <span>Próx: {state.nextStartSide === 'LEFT' ? 'Esq' : 'Dir'}</span>
+                                            </button>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 )}
@@ -461,18 +582,6 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
                 <div style={{ fontSize: '2rem', fontWeight: 700, opacity: 0.8, marginTop: '20px' }}>
                     {getPhaseName()}
                 </div>
-
-                {/* Rep Counter */}
-                {!isResting && state.phase !== PHASE.FINISHED && state.phase !== PHASE.PREP && (
-                    <div style={{ fontSize: '2.5rem', marginTop: '20px' }}>
-                        {currentExercise.isIsometric ? (
-                            <span>Tempo: {Math.floor(state.isometricTime)}s</span>
-                        ) : (
-                            // Start at 1. If 0 completed, show 1.
-                            <span>Rep {state.actualReps + 1} <span style={{ fontSize: '0.6em', opacity: 0.6 }}>/ {currentExercise.reps}</span></span>
-                        )}
-                    </div>
-                )}
 
                 {/* Rest Next Info */}
                 {isResting && (

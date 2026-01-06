@@ -7,6 +7,8 @@ const DEFAULT_EXERCISE = {
     name: 'Novo Exercício',
     sets: 3,
     reps: 10,
+    repsMin: 8,
+    repsMax: 12,
     failureMode: true,
     startConcentric: false,
     isIsometric: false,
@@ -34,6 +36,8 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
             if (e.biSetId === undefined) e.biSetId = null;
             if (e.prepTime === undefined) e.prepTime = 5;
             if (e.startSide === undefined) e.startSide = 'LEFT';
+            if (e.repsMin === undefined) e.repsMin = e.reps;
+            if (e.repsMax === undefined) e.repsMax = e.reps;
         }));
         return parsed;
     });
@@ -219,8 +223,8 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                                 <button onClick={() => removeExercise(idx)} style={{ background: 'transparent', color: '#ff4d4d', padding: 0 }}><Trash2 /></button>
                             </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'min-content 1fr', gap: '12px', marginBottom: '16px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '60px' }}>
                                     <label style={{ fontSize: '0.9em', color: '#ccc', marginBottom: '6px' }}>Séries</label>
                                     <input
                                         type="number"
@@ -229,17 +233,46 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                                         style={inputStyle}
                                     />
                                 </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                    <label style={{ fontSize: '0.9em', color: '#ccc', marginBottom: '6px' }}>
-                                        {ex.isIsometric ? 'Tempo (s)' : 'Reps Alvo'}
-                                    </label>
-                                    <input
-                                        type="number"
-                                        value={ex.reps}
-                                        onChange={(e) => updateExercise(idx, 'reps', e.target.value === '' ? '' : parseInt(e.target.value))}
-                                        style={inputStyle}
-                                    />
-                                </div>
+
+                                {/* Dynamic Reps/Range Section */}
+                                {ex.failureMode ? (
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                                            <label style={{ fontSize: '0.9em', color: '#ccc', marginBottom: '6px' }}>
+                                                {ex.isIsometric ? 'Tempo Min' : 'Reps Min'}
+                                            </label>
+                                            <input
+                                                type="number"
+                                                value={ex.repsMin || ex.reps} // Fallback to reps if min undefined
+                                                onChange={(e) => updateExercise(idx, 'repsMin', e.target.value === '' ? '' : parseInt(e.target.value))}
+                                                style={inputStyle}
+                                            />
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                                            <label style={{ fontSize: '0.9em', color: '#ccc', marginBottom: '6px' }}>
+                                                {ex.isIsometric ? 'Tempo Max' : 'Reps Max'}
+                                            </label>
+                                            <input
+                                                type="number"
+                                                value={ex.repsMax || ex.reps} // Fallback to reps if max undefined
+                                                onChange={(e) => updateExercise(idx, 'repsMax', e.target.value === '' ? '' : parseInt(e.target.value))}
+                                                style={inputStyle}
+                                            />
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                                        <label style={{ fontSize: '0.9em', color: '#ccc', marginBottom: '6px' }}>
+                                            {ex.isIsometric ? 'Tempo (s)' : 'Reps Alvo'}
+                                        </label>
+                                        <input
+                                            type="number"
+                                            value={ex.reps}
+                                            onChange={(e) => updateExercise(idx, 'reps', e.target.value === '' ? '' : parseInt(e.target.value))}
+                                            style={inputStyle}
+                                        />
+                                    </div>
+                                )}
                             </div>
 
                             <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>

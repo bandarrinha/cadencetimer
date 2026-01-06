@@ -167,6 +167,7 @@ export default function WorkoutSummary({ workout, weightData, onSave, onDiscard,
                                                                 key={entry.originalIndex}
                                                                 entry={entry}
                                                                 idx={entry.originalIndex}
+                                                                exercise={exercise}
                                                                 onUpdate={updateEntry}
                                                                 comparison={comparison}
                                                             />
@@ -205,7 +206,7 @@ export default function WorkoutSummary({ workout, weightData, onSave, onDiscard,
     );
 }
 
-function SummaryRow({ entry, idx, onUpdate, comparison }) {
+function SummaryRow({ entry, idx, exercise, onUpdate, comparison }) {
     const [isEditing, setIsEditing] = useState(false);
     const [tempWeight, setTempWeight] = useState(entry.weight);
     const [tempReps, setTempReps] = useState(entry.time > 0 ? entry.time : entry.reps);
@@ -216,13 +217,25 @@ function SummaryRow({ entry, idx, onUpdate, comparison }) {
         setIsEditing(false);
     };
 
+    // Calculate Advice
+    const advice = (() => {
+        if (!exercise || !exercise.failureMode) return null;
+        const val = entry.time > 0 ? entry.time : entry.reps;
+        const min = exercise.repsMin || exercise.reps;
+        const max = exercise.repsMax || exercise.reps;
+
+        if (val < min) return "Diminuir Carga ⬇️";
+        if (val > max) return "Aumentar Carga ⬆️";
+        return "Manter Carga ✅";
+    })();
+
     return (
         <div>
             <div style={{
                 background: '#1a1a1a', padding: '12px', borderRadius: '12px',
                 display: 'grid',
-                // Grid: [#] [Content (Values + Comparison)] [EditBtn]
-                gridTemplateColumns: 'min-content 1fr min-content',
+                // Grid: [#] [Content (Values + Comparison)] [Advice] [EditBtn]
+                gridTemplateColumns: 'min-content 1fr min-content min-content',
                 alignItems: 'center', gap: '8px'
             }}>
                 <div style={{ fontWeight: 'bold', color: '#666', fontSize: '0.9em', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -281,6 +294,20 @@ function SummaryRow({ entry, idx, onUpdate, comparison }) {
                         </div>
                     </div>
                 )}
+
+                {/* Advice Column */}
+                {!isEditing && advice && (
+                    <div style={{
+                        fontSize: '0.7em', padding: '2px 4px', borderRadius: '4px', whiteSpace: 'nowrap',
+                        background: advice.includes('Manter') ? '#e8f5e9' : (advice.includes('Diminuir') ? '#ffebee' : '#e3f2fd'),
+                        color: advice.includes('Manter') ? '#2e7d32' : (advice.includes('Diminuir') ? '#c62828' : '#1565c0'),
+                        fontWeight: 'bold'
+                    }}>
+                        {advice.includes('Manter') ? 'OK' : (advice.includes('Diminuir') ? '-KG' : '+KG')}
+                    </div>
+                )}
+                {!isEditing && !advice && <div />} {/* Spacer */}
+
 
                 <div style={{ display: 'flex', justifyContent: 'center' }}>
                     {isEditing ? (

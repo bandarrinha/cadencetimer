@@ -66,15 +66,36 @@ export function timerReducer(state, action) {
 
             // Isometric Logic
             let newIsoTime = state.isometricTime;
-            if (state.phase === PHASE.ISOMETRIC_WORK) {
+            const currentEx = state.workout?.exercises[state.exerciseIndex];
+            const isIsoWork = state.phase === PHASE.ISOMETRIC_WORK;
+
+            if (isIsoWork) {
                 newIsoTime += action.payload;
             }
 
-            if (newTime > 0) {
-                return { ...state, timeLeft: newTime, isometricTime: newIsoTime, totalWorkoutTime: state.totalWorkoutTime + action.payload };
+            // If time is up...
+            if (newTime <= 0) {
+                // Check if we should prevent transition (Isometric + Failure Mode)
+                if (isIsoWork && currentEx && currentEx.failureMode) {
+                    // Do NOT transition. Just update times.
+                    // We allow timeLeft to go negative, or just stay at 0?
+                    // User wants to see "overtime". 
+                    // Actually logic elsewhere (ActiveWorkout) handles display.
+                    // The requirement is: "contagem regressiva grande quando chegar a zero nao deveria voltar para 60".
+                    // If we don't transition, it won't go to rest (60s).
+                    return {
+                        ...state,
+                        timeLeft: newTime, // Allow negative
+                        isometricTime: newIsoTime,
+                        totalWorkoutTime: state.totalWorkoutTime + action.payload
+                    };
+                }
+
+                // Normal transition
+                return transitionPhase({ ...state, isometricTime: newIsoTime, totalWorkoutTime: state.totalWorkoutTime + action.payload });
             }
 
-            return transitionPhase({ ...state, isometricTime: newIsoTime, totalWorkoutTime: state.totalWorkoutTime + action.payload });
+            return { ...state, timeLeft: newTime, isometricTime: newIsoTime, totalWorkoutTime: state.totalWorkoutTime + action.payload };
         }
         case 'SKIP_PHASE':
             return transitionPhase(state);
