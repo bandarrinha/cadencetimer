@@ -238,6 +238,12 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
     // Render Helpers
     const currentExercise = workout.exercises[state.exerciseIndex] || {};
 
+    // Determine which set number to display in the header
+    // During REST_SET, we want to show the COMPLETED set (current - 1), not the upcoming one.
+    const displaySetNumber = state.phase === PHASE.REST_SET
+        ? Math.max(1, state.setNumber - 1)
+        : state.setNumber;
+
     const getPhaseColor = () => {
         switch (state.phase) {
             case PHASE.ECCENTRIC: return 'var(--color-eccentric)';
@@ -370,7 +376,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                         <span style={{ fontSize: '1.2em', fontWeight: 600 }}>{currentExercise.name}</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '1.2em' }}>Série {state.setNumber}/{currentExercise.sets}</span>
+                            <span style={{ fontSize: '1.2em' }}>Série {displaySetNumber}/{currentExercise.sets}</span>
                             {/* Side Indicator */}
                             {currentExercise.isUnilateral && state.currentSide && (
                                 <span style={{
