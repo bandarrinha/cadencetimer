@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import NumberInput from './common/NumberInput';
 import { Save, CheckCircle, Edit2, Clock, ArrowUp, ArrowDown, Minus } from 'lucide-react';
+import WeightAdviceIcon from './common/WeightAdviceIcon';
 
 export default function WorkoutSummary({ workout, weightData, onSave, onDiscard, startTime, finishTime }) {
     // weightData is array of { exerciseId, setNumber, reps, weight, time }
@@ -226,9 +227,9 @@ function SummaryRow({ entry, idx, exercise, onUpdate, comparison }) {
         const min = exercise.repsMin || exercise.reps;
         const max = exercise.repsMax || exercise.reps;
 
-        if (val < min) return "Diminuir Carga ⬇️";
-        if (val > max) return "Aumentar Carga ⬆️";
-        return "Manter Carga ✅";
+        if (val < min) return "decrease"; // Decrease Load
+        if (val > max) return "increase"; // Increase Load
+        return "maintain"; // Maintain
     })();
 
     return (
@@ -299,14 +300,7 @@ function SummaryRow({ entry, idx, exercise, onUpdate, comparison }) {
 
                 {/* Advice Column */}
                 {!isEditing && advice && (
-                    <div style={{
-                        fontSize: '0.7em', padding: '2px 4px', borderRadius: '4px', whiteSpace: 'nowrap',
-                        background: advice.includes('Manter') ? '#e8f5e9' : (advice.includes('Diminuir') ? '#ffebee' : '#e3f2fd'),
-                        color: advice.includes('Manter') ? '#2e7d32' : (advice.includes('Diminuir') ? '#c62828' : '#1565c0'),
-                        fontWeight: 'bold'
-                    }}>
-                        {advice.includes('Manter') ? 'OK' : (advice.includes('Diminuir') ? '-KG' : '+KG')}
-                    </div>
+                    <WeightAdviceIcon advice={advice} />
                 )}
                 {!isEditing && !advice && <div />} {/* Spacer */}
 

@@ -134,7 +134,7 @@ function App() {
       )}
 
       {view === 'HISTORY' && (
-        <WorkoutHistory onBack={() => setView('HOME')} />
+        <WorkoutHistory onBack={() => setView('HOME')} workouts={workouts} />
       )}
     </div>
   );

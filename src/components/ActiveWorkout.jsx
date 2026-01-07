@@ -4,6 +4,7 @@ import { useTTS } from '../hooks/useTTS';
 import { Pause, Play, SkipForward, X, AlertTriangle, ArrowLeftRight } from 'lucide-react';
 import NumberInput from './common/NumberInput';
 import WorkoutSummary from './WorkoutSummary';
+import WeightAdviceIcon from './common/WeightAdviceIcon';
 
 export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
     const { state, start, pause, resume, skip, registerFailure, finishWorkout, logSetData, setStartSide } = useCadenceTimer();
@@ -123,8 +124,17 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
 
                 const newInputs = {};
 
+                const history = JSON.parse(localStorage.getItem('cadence_history') || '[]');
+
                 targetExercises.forEach(ex => {
                     const logs = state.weightData.filter(w => w.exerciseId === ex.id);
+
+                    const getLastHistoryWeight = () => {
+                        const entry = history.slice().reverse().find(h =>
+                            h.exerciseId === ex.id || h.exerciseName === ex.name
+                        );
+                        return entry ? entry.weight : '';
+                    };
 
                     if (ex.isUnilateral) {
                         // Find last complete set (which has both L and R? or just whatever is last)
@@ -140,11 +150,26 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
                             const rightLog = setLogs.find(l => l.side === 'RIGHT');
 
                             // Weight is usually same, take from any
-                            const sWeight = leftLog ? leftLog.weight : (rightLog ? rightLog.weight : '');
+                            let sWeight = leftLog ? leftLog.weight : (rightLog ? rightLog.weight : '');
+
+                            // If weight is missing and it's the first set (or no prev sets in this workout), try history
+                            // We check if there are NO previous sets (setNumber == 1)
+                            if ((!sWeight || sWeight === 0) && targetSet === 1) {
+                                sWeight = getLastHistoryWeight();
+                            }
+                            // If still 0/empty and we have previous sets in THIS workout, use that (inheriting)
+                            // (Logic handled by 'weight' persistence in logSetData usually, but explicit check here:)
+                            if ((!sWeight || sWeight === 0) && targetSet > 1) {
+                                // Find weight from Set N-1
+                                const prevSetLogs = logs.filter(l => l.setNumber === targetSet - 1);
+                                const prevEntry = prevSetLogs[0];
+                                if (prevEntry) sWeight = prevEntry.weight;
+                            }
+
                             const sRepsLeft = leftLog ? leftLog.reps : '';
                             const sRepsRight = rightLog ? rightLog.reps : '';
 
-                            newInputs[ex.id] = { weight: sWeight, repsLeft: sRepsLeft, repsRight: sRepsRight };
+                            newInputs[ex.id] = { weight: sWeight || '', repsLeft: sRepsLeft, repsRight: sRepsRight };
                         } else {
                             newInputs[ex.id] = { weight: '', repsLeft: '', repsRight: '' };
                         }
@@ -155,13 +180,19 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
 
                         if (lastLog) {
                             sWeight = lastLog.weight || '';
-                            // If weight 0, try finding previous valid set (index - 2)
-                            if (!sWeight && logs.length >= 2) {
+
+                            // 1. If First Set and Empty -> History
+                            if ((!sWeight || sWeight === 0) && logs.length === 1) {
+                                sWeight = getLastHistoryWeight();
+                            }
+
+                            // 2. If Empty and previous sets exist -> Inherit (fallback)
+                            if ((!sWeight || sWeight === 0) && logs.length >= 2) {
                                 sWeight = logs[logs.length - 2].weight;
                             }
                             sReps = ex.isIsometric ? Math.floor(lastLog.time) : lastLog.reps;
                         }
-                        newInputs[ex.id] = { weight: sWeight, reps: sReps };
+                        newInputs[ex.id] = { weight: sWeight || '', reps: sReps };
                     }
                 });
 
@@ -339,9 +370,9 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
         const min = ex.repsMin || ex.reps;
         const max = ex.repsMax || ex.reps;
 
-        if (val < min) return "Diminuir Carga ⬇️";
-        if (val > max) return "Aumentar Carga ⬆️";
-        return "Manter Carga ✅";
+        if (val < min) return { text: "Diminuir Carga", type: "decrease" };
+        if (val > max) return { text: "Aumentar Carga", type: "increase" };
+        return { text: "Manter Carga", type: "maintain" };
     };
 
     // If Summary is active, render it overlaying everything
@@ -490,12 +521,12 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
                                 return (
                                     <div key={ex.id} style={{
                                         background: 'rgba(255,255,255,0.9)',
-                                        padding: '16px',
+                                        padding: '10px',
                                         borderRadius: '16px',
                                         color: 'black',
                                         display: 'flex',
                                         flexDirection: 'column',
-                                        gap: '12px',
+                                        gap: '8px',
                                         flex: 1,
                                         minWidth: '140px'
                                     }}>
@@ -506,12 +537,15 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
                                         {/* Advice Badge */}
                                         {advice && (
                                             <div style={{
-                                                textAlign: 'center', fontSize: '0.8em',
-                                                background: advice.includes('Manter') ? '#e8f5e9' : (advice.includes('Diminuir') ? '#ffebee' : '#e3f2fd'),
-                                                color: advice.includes('Manter') ? '#2e7d32' : (advice.includes('Diminuir') ? '#c62828' : '#1565c0'),
-                                                padding: '4px', borderRadius: '4px', fontWeight: 'bold'
+                                                textAlign: 'center', fontSize: '1rem',
+                                                background: advice.type === 'maintain' ? '#e8f5e9' : (advice.type === 'decrease' ? '#ffebee' : '#e3f2fd'),
+                                                color: advice.type === 'maintain' ? '#2e7d32' : (advice.type === 'decrease' ? '#c62828' : '#1565c0'),
+                                                padding: '2px', borderRadius: '8px', fontWeight: 'bold',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px',
+                                                whiteSpace: 'nowrap'
                                             }}>
-                                                {advice}
+                                                <WeightAdviceIcon advice={advice.type} />
+                                                <span>{advice.text}</span>
                                             </div>
                                         )}
 

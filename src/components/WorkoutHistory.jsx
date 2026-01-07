@@ -1,8 +1,9 @@
 import { Trash2, ArrowLeft, Edit2, Save, X } from 'lucide-react';
 import { useState } from 'react';
 import NumberInput from './common/NumberInput';
+import WeightAdviceIcon from './common/WeightAdviceIcon';
 
-export default function WorkoutHistory({ onBack }) {
+export default function WorkoutHistory({ onBack, workouts = [] }) {
     const [history, setHistory] = useState(() => JSON.parse(localStorage.getItem('cadence_history') || '[]'));
     const [editingIndex, setEditingIndex] = useState(null); // Index of the global history array being edited
     const [editValues, setEditValues] = useState({}); // { weight, reps, time }
@@ -43,6 +44,27 @@ export default function WorkoutHistory({ onBack }) {
         };
         saveHistory(newHistory);
         setEditingIndex(null);
+    };
+
+    // Helper to find exercise definition to calculate advice
+    const getAdvice = (entry) => {
+        // Find workout by ID
+        const workout = workouts.find(w => w.id === entry.workoutId) || workouts.find(w => w.name === entry.workoutName);
+        if (!workout) return null;
+
+        // Find exercise
+        const exercise = workout.exercises.find(e => e.id === entry.exerciseId || e.name === entry.exerciseName);
+
+        // If exercise not found or no failure mode, no advice
+        if (!exercise || !exercise.failureMode) return null;
+
+        const val = entry.time > 0 ? entry.time : entry.reps;
+        const min = exercise.repsMin || exercise.reps;
+        const max = exercise.repsMax || exercise.reps;
+
+        if (val < min) return "decrease"; // Decrease Load
+        if (val > max) return "increase"; // Increase Load
+        return "maintain"; // Maintain
     };
 
     // We render in reverse chronological order mainly, but we need the original index for updating.
@@ -167,6 +189,7 @@ export default function WorkoutHistory({ onBack }) {
                                                             </div>
                                                             {exData.sets.map((set, stIdx) => {
                                                                 const isEditing = editingIndex === set.originalIndex;
+                                                                const advice = getAdvice(set);
 
                                                                 return (
                                                                     <div key={stIdx} style={{
@@ -222,8 +245,9 @@ export default function WorkoutHistory({ onBack }) {
                                                                                 <div style={{ textAlign: 'center', fontWeight: 'bold', color: 'var(--color-primary)' }}>
                                                                                     {set.time !== undefined && set.time > 0 ? `${Math.floor(set.time)}s` : set.reps}
                                                                                 </div>
-                                                                                <div style={{ textAlign: 'center' }}>
-                                                                                    {`${set.weight || '-'} kg`}
+                                                                                <div style={{ textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                                                                                    <span>{set.weight || '-'}</span>
+                                                                                    <WeightAdviceIcon advice={advice} />
                                                                                 </div>
                                                                             </>
                                                                         )}
