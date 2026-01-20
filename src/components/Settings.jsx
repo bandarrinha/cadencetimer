@@ -1,14 +1,31 @@
-import { useRef } from 'react';
-import { Download, Upload, ArrowLeft } from 'lucide-react';
+import { useRef, useState, useEffect } from 'react';
+import { Download, Upload, ArrowLeft, Sun } from 'lucide-react';
 
 export default function Settings({ onBack }) {
     const fileInputRef = useRef(null);
+    const [keepAwake, setKeepAwake] = useState(true);
+
+    useEffect(() => {
+        const settings = JSON.parse(localStorage.getItem('cadence_settings') || '{}');
+        if (settings.keepAwake !== undefined) {
+            setKeepAwake(settings.keepAwake);
+        }
+    }, []);
+
+    const toggleKeepAwake = (val) => {
+        const newVal = typeof val === 'boolean' ? val : !keepAwake;
+        setKeepAwake(newVal);
+        const settings = JSON.parse(localStorage.getItem('cadence_settings') || '{}');
+        settings.keepAwake = newVal;
+        localStorage.setItem('cadence_settings', JSON.stringify(settings));
+    };
 
     // Import/Export Logic
     const exportData = () => {
         const data = {
             workouts: JSON.parse(localStorage.getItem('cadence_workouts')),
-            history: JSON.parse(localStorage.getItem('cadence_history'))
+            history: JSON.parse(localStorage.getItem('cadence_history')),
+            settings: JSON.parse(localStorage.getItem('cadence_settings') || '{}')
         };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -48,6 +65,10 @@ export default function Settings({ onBack }) {
                     localStorage.setItem('cadence_history', JSON.stringify(data.history));
                 }
 
+                if (data.settings) {
+                    localStorage.setItem('cadence_settings', JSON.stringify(data.settings));
+                }
+
                 alert('Dados importados com sucesso! A página será recarregada.');
                 window.location.reload();
             } catch (err) {
@@ -71,8 +92,36 @@ export default function Settings({ onBack }) {
                 <h2 style={{ flex: 1, textAlign: 'center', margin: 0 }}>Configurações</h2>
             </header>
 
+            <div style={{ background: '#1e1e1e', padding: '24px', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: '20px' }}>
+                <h3 style={{ margin: 0, color: 'white', fontSize: '1.2em' }}>Preferências</h3>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Sun size={20} color="#ccc" />
+                        <span style={{ color: 'white' }}>Manter tela ligada durante o treino</span>
+                    </div>
+                    <label style={{ position: 'relative', display: 'inline-block', width: '40px', height: '24px' }}>
+                        <input
+                            type="checkbox"
+                            checked={keepAwake}
+                            onChange={(e) => toggleKeepAwake(e.target.checked)}
+                            style={{ opacity: 0, width: 0, height: 0 }}
+                        />
+                        <span style={{
+                            position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0,
+                            backgroundColor: keepAwake ? 'var(--color-primary)' : '#555', transition: '.4s', borderRadius: '34px'
+                        }}>
+                            <span style={{
+                                position: 'absolute', content: '""', height: '16px', width: '16px', left: '4px', bottom: '4px',
+                                backgroundColor: 'white', transition: '.4s', borderRadius: '50%',
+                                transform: keepAwake ? 'translateX(16px)' : 'translateX(0)'
+                            }}></span>
+                        </span>
+                    </label>
+                </div>
+            </div>
+
             <div style={{ background: '#1e1e1e', padding: '24px', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <h3 style={{ margin: 0, color: '#white', fontSize: '1.2em' }}>Dados e Backup</h3>
+                <h3 style={{ margin: 0, color: 'white', fontSize: '1.2em' }}>Dados e Backup</h3>
                 <p style={{ color: '#888', fontSize: '0.9em', margin: 0 }}>Exporte seus dados para manter um backup seguro ou import para restaurar configurações anteriores.</p>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>

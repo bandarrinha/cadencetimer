@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useCadenceTimer, PHASE } from '../hooks/useCadenceTimer';
 import { useTTS } from '../hooks/useTTS';
+import { useWakeLock } from '../hooks/useWakeLock';
 import { Pause, Play, SkipForward, X, AlertTriangle, ArrowLeftRight } from 'lucide-react';
 import NumberInput from './common/NumberInput';
 import WorkoutSummary from './WorkoutSummary';
@@ -13,23 +14,11 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
     const prevTimeRef = useRef(state.timeLeft);
 
     // Initial Wake Lock
-    useEffect(() => {
-        let wakeLock = null;
-        const requestWakeLock = async () => {
-            try {
-                if ('wakeLock' in navigator) {
-                    wakeLock = await navigator.wakeLock.request('screen');
-                }
-            } catch (err) {
-                console.error(`${err.name}, ${err.message}`);
-            }
-        };
-        requestWakeLock();
-        return () => {
-            if (wakeLock)
-                wakeLock.release();
-        };
-    }, []);
+    // Read settings directly to determine if we should keep awake (default true)
+    const settings = JSON.parse(localStorage.getItem('cadence_settings') || '{}');
+    const shouldKeepAwake = settings.keepAwake !== undefined ? settings.keepAwake : true;
+
+    useWakeLock(shouldKeepAwake);
 
     // Local state for inputs during rest (Map: { [exId]: { weight: '', reps: '' } })
     const [inputValues, setInputValues] = useState({});
