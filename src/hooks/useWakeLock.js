@@ -29,10 +29,15 @@ export const useWakeLock = (enabled = true) => {
         return () => {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             if (wakeLockRef.current) {
-                wakeLockRef.current.release().then(() => {
+                const releasePromise = wakeLockRef.current.release();
+                if (releasePromise && typeof releasePromise.then === 'function') {
+                    releasePromise.then(() => {
+                        wakeLockRef.current = null;
+                        console.log('Wake Lock released');
+                    });
+                } else {
                     wakeLockRef.current = null;
-                    console.log('Wake Lock released');
-                });
+                }
             }
         };
     }, [enabled]);

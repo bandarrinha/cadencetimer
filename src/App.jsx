@@ -3,7 +3,7 @@ import WorkoutSetup from './components/WorkoutSetup';
 import ActiveWorkout from './components/ActiveWorkout';
 import WorkoutHistory from './components/WorkoutHistory';
 import Settings from './components/Settings';
-import { Play, History, Settings as SettingsIcon, Edit } from 'lucide-react';
+import { Play, History, Settings as SettingsIcon, Edit, AlertTriangle } from 'lucide-react';
 import logo from './assets/cadenceTimerDark.svg';
 
 const DEFAULT_WORKOUT = {
@@ -20,10 +20,28 @@ function App() {
     return saved ? JSON.parse(saved) : [DEFAULT_WORKOUT];
   });
   const [activeWorkout, setActiveWorkout] = useState(null); // Actual object for running workout
+  const [recoveryData, setRecoveryData] = useState(() => {
+    const saved = localStorage.getItem('cadence_active_recovery');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.status !== 'FINISHED' && parsed.status !== 'IDLE') {
+          return parsed;
+        }
+      } catch (e) {
+        console.error("Failed to parse recovery data", e);
+      }
+    }
+    return null;
+  });
+  const [showRecoveryPrompt, setShowRecoveryPrompt] = useState(!!recoveryData);
 
   useEffect(() => {
     localStorage.setItem('active_workout_id', activeWorkoutId);
   }, [activeWorkoutId]);
+
+  // Check for recovery
+  /* Recovery logic moved to initializers to avoid effect */
 
   // Sync workouts state if updated in Setup
   const handleWorkoutsUpdate = (updatedWorkouts) => {
@@ -66,6 +84,21 @@ function App() {
 
     setActiveWorkout(null);
     setView('HOME');
+    setRecoveryData(null); // Clear recovery prop
+  };
+
+  const handleRecover = () => {
+    if (recoveryData && recoveryData.workout) {
+      setActiveWorkout(recoveryData.workout);
+      setView('ACTIVE');
+      setShowRecoveryPrompt(false);
+    }
+  };
+
+  const handleDiscard = () => {
+    localStorage.removeItem('cadence_active_recovery');
+    setRecoveryData(null);
+    setShowRecoveryPrompt(false);
   };
 
   return (
@@ -128,13 +161,33 @@ function App() {
       {view === 'ACTIVE' && activeWorkout && (
         <ActiveWorkout
           workout={activeWorkout}
-          onExit={() => { setActiveWorkout(null); setView('HOME'); }}
+          initialState={recoveryData}
+          onExit={() => { setActiveWorkout(null); setView('HOME'); setRecoveryData(null); }}
           onFinishWorkout={handleFinishWorkout}
         />
       )}
 
       {view === 'HISTORY' && (
         <WorkoutHistory onBack={() => setView('HOME')} workouts={workouts} />
+      )}
+
+      {/* Recovery Modal */}
+      {showRecoveryPrompt && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '20px' }}>
+          <AlertTriangle size={64} color="#ff9800" style={{ marginBottom: '20px' }} />
+          <h2 style={{ marginBottom: '10px', color: 'white', textAlign: 'center' }}>Treino Interrompido</h2>
+          <p style={{ color: '#ccc', textAlign: 'center', marginBottom: '30px' }}>
+            Encontramos um treino que foi fechado inesperadamente. Deseja continuar de onde parou?
+          </p>
+
+          <button onClick={handleRecover} style={{ width: '100%', maxWidth: '300px', padding: '16px', marginBottom: '16px', background: 'var(--color-primary)', color: 'black', fontWeight: 'bold', border: 'none', borderRadius: '8px', fontSize: '1.1em' }}>
+            CONTINUAR TREINO
+          </button>
+
+          <button onClick={handleDiscard} style={{ width: '100%', maxWidth: '300px', padding: '16px', background: 'transparent', color: '#ff4d4d', border: '1px solid #ff4d4d', borderRadius: '8px' }}>
+            Descartar e Iniciar Novo
+          </button>
+        </div>
       )}
     </div>
   );

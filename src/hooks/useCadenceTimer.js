@@ -14,6 +14,8 @@ export const PHASE = {
     ISOMETRIC_WORK: 'ISOMETRIC_WORK'
 };
 
+const STORAGE_KEY = 'cadence_active_recovery';
+
 const initialState = {
     status: 'IDLE', // IDLE, RUNNING, PAUSED
     exerciseIndex: 0,
@@ -40,6 +42,7 @@ export function timerReducer(state, action) {
                 workout: action.payload,
                 weightData: []
             };
+
         case 'START':
             return {
                 ...state,
@@ -62,7 +65,9 @@ export function timerReducer(state, action) {
         case 'RESUME':
             return { ...state, status: 'RUNNING' };
         case 'TICK': {
-            const newTime = state.timeLeft - action.payload;
+            if (state.status !== 'RUNNING') return state;
+            const delta = typeof action.payload === 'number' && !isNaN(action.payload) ? action.payload : 0;
+            const newTime = state.timeLeft - delta;
 
             // Isometric Logic
             let newIsoTime = state.isometricTime;
@@ -144,6 +149,12 @@ export function timerReducer(state, action) {
         }
 
 
+        case 'RECOVER':
+            return {
+                ...initialState,
+                ...action.payload,
+                status: 'PAUSED'
+            };
 
         case 'FINISH_WORKOUT':
             return {
@@ -154,6 +165,13 @@ export function timerReducer(state, action) {
                 finishTime: Date.now()
             };
 
+        case 'CLEAR_RECOVERY':
+            // localStorage removal is handled in the action creator (hook) for reliability
+            return {
+                ...state,
+                status: 'IDLE'
+            };
+
         default:
             return state;
     }
@@ -161,6 +179,10 @@ export function timerReducer(state, action) {
 
 function transitionPhase(state) {
     const { workout, exerciseIndex, phase } = state;
+    if (!workout || !workout.exercises || !workout.exercises[exerciseIndex]) {
+        console.error("Invalid state in transitionPhase", state);
+        return state;
+    }
     const currentExercise = workout.exercises[exerciseIndex];
     const cadence = currentExercise.cadence;
     const startConcentric = currentExercise.startConcentric || false;
@@ -525,6 +547,46 @@ export const useCadenceTimer = () => {
         }
     }, [state.status, tick]);
 
+
+
+    useEffect(() => {
+        if (state.status === 'IDLE' || state.status === 'FINISHED') {
+            if (state.status === 'FINISHED') {
+                localStorage.removeItem(STORAGE_KEY);
+            }
+            return;
+        }
+
+        const now = Date.now();
+        const lastSave = lastTimeRef.currentSave || 0;
+
+        // Save every 2 seconds or if important changes happen (phase change/set completion) 
+        // For simplicity here, we just throttle 2s. 
+        // However, we want to ensure we don't lose the very last update, so we might need a timeout.
+
+        // Actually, let's just use a simple timeout to debounce/throttle
+        const save = () => {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            lastTimeRef.currentSave = Date.now();
+        };
+
+        if (now - lastSave > 2000) {
+            save();
+        } else {
+            const timer = setTimeout(save, 2000);
+            return () => clearTimeout(timer);
+        }
+    }, [state]);
+
+    const recover = useCallback((savedState) => {
+        dispatch({ type: 'RECOVER', payload: savedState });
+    }, []);
+
+    const clearRecovery = useCallback(() => {
+        localStorage.removeItem(STORAGE_KEY);
+        dispatch({ type: 'CLEAR_RECOVERY' });
+    }, []);
+
     const start = useCallback((workout) => {
         dispatch({ type: 'INIT', payload: workout });
         setTimeout(() => dispatch({ type: 'START' }), 0);
@@ -556,6 +618,8 @@ export const useCadenceTimer = () => {
         registerFailure,
         finishWorkout,
         logSetData,
-        setStartSide
+        setStartSide,
+        recover,
+        clearRecovery
     };
 };

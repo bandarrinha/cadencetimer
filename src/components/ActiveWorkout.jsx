@@ -7,11 +7,12 @@ import NumberInput from './common/NumberInput';
 import WorkoutSummary from './WorkoutSummary';
 import WeightAdviceIcon from './common/WeightAdviceIcon';
 
-export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
-    const { state, start, pause, resume, skip, registerFailure, finishWorkout, logSetData, setStartSide } = useCadenceTimer();
+export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initialState }) {
+    const { state, start, pause, resume, skip, registerFailure, finishWorkout, logSetData, setStartSide, recover, clearRecovery } = useCadenceTimer();
     const { speak, playBeep } = useTTS();
     const prevPhaseRef = useRef(state.phase);
     const prevTimeRef = useRef(state.timeLeft);
+    const hasRecovered = useRef(false);
 
     // Initial Wake Lock
     // Read settings directly to determine if we should keep awake (default true)
@@ -30,10 +31,16 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
 
     // Start on mount
     useEffect(() => {
-        if (workout) {
+        if (hasRecovered.current) return;
+
+        if (initialState) {
+            recover(initialState);
+            hasRecovered.current = true;
+        } else if (workout) {
             start(workout);
+            hasRecovered.current = true;
         }
-    }, [workout, start]);
+    }, [workout, start, initialState, recover]);
 
 
     // Audio Logic & Auto-Save Logic on Phase Change
@@ -607,6 +614,8 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
                     {getPhaseName()}
                 </div>
 
+
+
                 {/* Rest Next Info */}
                 {isResting && (
                     <div style={{ fontSize: '1.5rem', marginTop: '20px' }}>
@@ -663,7 +672,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout }) {
                         FINALIZAR E SALVAR
                     </button>
 
-                    <button onClick={onExit} style={{ width: '100%', maxWidth: '300px', padding: '16px', marginBottom: '16px', background: '#ff4d4d', color: 'white' }}>
+                    <button onClick={() => { clearRecovery(); onExit(); }} style={{ width: '100%', maxWidth: '300px', padding: '16px', marginBottom: '16px', background: '#ff4d4d', color: 'white' }}>
                         SAIR SEM SALVAR
                     </button>
 
