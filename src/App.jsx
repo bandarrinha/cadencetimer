@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import WorkoutSetup from './components/WorkoutSetup';
+import WorkoutPreview from './components/WorkoutPreview';
 import ActiveWorkout from './components/ActiveWorkout';
 import WorkoutHistory from './components/WorkoutHistory';
 import Settings from './components/Settings';
@@ -20,6 +21,7 @@ function App() {
     return saved ? JSON.parse(saved) : [DEFAULT_WORKOUT];
   });
   const [activeWorkout, setActiveWorkout] = useState(null); // Actual object for running workout
+  const [initialWeights, setInitialWeights] = useState({}); // Weights from preview
   const [recoveryData, setRecoveryData] = useState(() => {
     const saved = localStorage.getItem('cadence_active_recovery');
     if (saved) {
@@ -53,6 +55,11 @@ function App() {
 
   const startWorkout = () => {
     setActiveWorkout(currentWorkout);
+    setView('PREVIEW');
+  };
+
+  const handlePreviewStart = (weights) => {
+    setInitialWeights(weights);
     setView('ACTIVE');
   };
 
@@ -158,10 +165,19 @@ function App() {
         />
       )}
 
+      {view === 'PREVIEW' && activeWorkout && (
+        <WorkoutPreview
+          workout={activeWorkout}
+          onStart={handlePreviewStart}
+          onBack={() => setView('HOME')}
+        />
+      )}
+
       {view === 'ACTIVE' && activeWorkout && (
         <ActiveWorkout
           workout={activeWorkout}
           initialState={recoveryData}
+          initialWeights={initialWeights}
           onExit={() => { setActiveWorkout(null); setView('HOME'); setRecoveryData(null); }}
           onFinishWorkout={handleFinishWorkout}
         />

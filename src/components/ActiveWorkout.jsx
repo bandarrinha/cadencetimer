@@ -7,7 +7,7 @@ import NumberInput from './common/NumberInput';
 import WorkoutSummary from './WorkoutSummary';
 import WeightAdviceIcon from './common/WeightAdviceIcon';
 
-export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initialState }) {
+export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initialState, initialWeights }) {
     const { state, start, pause, resume, skip, registerFailure, finishWorkout, logSetData, setStartSide, recover, clearRecovery } = useCadenceTimer();
     const { speak, playBeep } = useTTS();
     const prevPhaseRef = useRef(state.phase);
@@ -39,8 +39,34 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
         } else if (workout) {
             start(workout);
             hasRecovered.current = true;
+
+            // Seed initial weights for first set
+            if (initialWeights) {
+                Object.entries(initialWeights).forEach(([exId, weight]) => {
+                    if (weight !== '' && weight !== undefined) {
+                        const parsedWeight = parseFloat(weight);
+
+                        // Check if unilateral to seed both sides?
+                        // For simplicity, just seed generic 1st set. 
+                        // If unilateral, logSetData needs 'side'.
+                        const ex = workout.exercises.find(e => e.id === exId);
+                        if (ex) {
+                            if (ex.isUnilateral) {
+                                // Seed both LEFT and RIGHT for set 1?
+                                // Usually we start with one side. 
+                                // But inputs for weight apply to both sides usually.
+                                // Let's seed LEFT and RIGHT just to be safe if startSide varies.
+                                logSetData(exId, 1, 0, parsedWeight, 0, 'LEFT');
+                                logSetData(exId, 1, 0, parsedWeight, 0, 'RIGHT');
+                            } else {
+                                logSetData(exId, 1, ex.reps || 0, parsedWeight, 0);
+                            }
+                        }
+                    }
+                });
+            }
         }
-    }, [workout, start, initialState, recover]);
+    }, [workout, start, initialState, recover, initialWeights, logSetData]);
 
 
     // Audio Logic & Auto-Save Logic on Phase Change

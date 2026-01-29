@@ -391,7 +391,24 @@ function finishSet(state) {
         side: state.currentSide || null
     };
 
-    const newWeightData = [...state.weightData, setLog];
+    // Upsert Logic for finishSet
+    let newWeightData = [...state.weightData];
+    const existingIndex = newWeightData.findIndex(w =>
+        w.exerciseId === currentExercise.id &&
+        w.setNumber === setNumber &&
+        (w.side === (state.currentSide || null))
+    );
+
+    if (existingIndex >= 0) {
+        // Update existing
+        newWeightData[existingIndex] = {
+            ...newWeightData[existingIndex],
+            ...setLog
+        };
+    } else {
+        // Append new
+        newWeightData.push(setLog);
+    }
 
     // Unilateral Logic
     if (currentExercise.isUnilateral) {
