@@ -115,9 +115,9 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                 // "transitionPhase" (Rest expired) -> THEN it increments exerciseIndex.
                 // So YES, during REST (any type), exerciseIndex points to the exercise just finished.
                 // SO:
-                if (currentEx.biSetId && workout.exercises[currentExIndex - 1]?.biSetId === currentEx.biSetId) {
-                    // It's the 2nd of a pair. Include the 1st one.
-                    targetExercises.unshift(workout.exercises[currentExIndex - 1]);
+                if (currentEx.biSetId) {
+                    // Find ALL exercises in this group (Tri-Set/Giant Set)
+                    targetExercises = workout.exercises.filter(ex => ex.biSetId === currentEx.biSetId);
                 }
 
                 const newInputs = {};
@@ -314,11 +314,14 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
     // Identify exercises to display in Rest
     // Can be multiple (Bi-Set) or single
     // Be safe and recalculate
+    // Identify exercises to display in Rest
+    // Can be multiple (Bi-Set, Tri-Set, Giant Set) or single
+    // Be safe and recalculate
     let activeInputExercises = [currentExercise];
-    if (isResting) {
-        if (currentExercise.biSetId && workout.exercises[state.exerciseIndex - 1]?.biSetId === currentExercise.biSetId) {
-            activeInputExercises.unshift(workout.exercises[state.exerciseIndex - 1]);
-        }
+    if (isResting && currentExercise.biSetId) {
+        // Find ALL exercises in this group
+        // We assume they are in order in the workout list
+        activeInputExercises = workout.exercises.filter(ex => ex.biSetId === currentExercise.biSetId);
     }
 
 

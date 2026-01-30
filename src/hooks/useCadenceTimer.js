@@ -244,44 +244,60 @@ function transitionPhase(state) {
     }
 
     if (phase === PHASE.PREP || phase.includes('REST')) {
-        // Bi-Set Loop Back Logic
-        // If we are coming from REST_SET, and current exercise is the 2nd of a bi-set,
-        // we need to switch active exercise back to the 1st of the pair.
-        // NOTE: finishSet already incremented setNumber.
+        // Bi-Set (or Tri-Set/Group) Loop Back Logic
+        // If we are coming from REST_SET, check if we are at the end of a grouped set loop.
         if (phase === PHASE.REST_SET) {
-            const isBiSetEnd = currentExercise.biSetId &&
-                workout.exercises[exerciseIndex - 1]?.biSetId === currentExercise.biSetId;
-            if (isBiSetEnd) {
-                // Loop back to the first exercise of the Bi-Set -> SKIP PREP (Direct to work)
-                const targetExercise = workout.exercises[exerciseIndex - 1];
+            // Check if current exercise is part of a group
+            if (currentExercise.biSetId) {
+                // Find all exercises in this group (assuming sequential order for simplicity)
+                // We want to know:
+                // 1. Is this the LAST exercise of the group?
+                // 2. What is the FIRST exercise of the group?
 
-                // Calculate initial phase for target exercise (Ex 1)
-                const startConcentricTarget = targetExercise.startConcentric || false;
-                const targetOrder = startConcentricTarget ? orderInv : orderStd;
-                const firstPhaseTarget = targetOrder[0];
+                const groupExercises = [];
+                let firstIndex = -1;
 
-                // Get cadence duration
-                const targetCadence = targetExercise.cadence;
-                const targetGetDur = (p) => {
-                    if (p === PHASE.ECCENTRIC) return targetCadence.eccentric;
-                    if (p === PHASE.BOTTOM_HOLD) return targetCadence.eccentricPause;
-                    if (p === PHASE.CONCENTRIC) return targetCadence.concentric;
-                    if (p === PHASE.TOP_HOLD) return targetCadence.concentricPause;
-                    return 0;
-                };
+                workout.exercises.forEach((ex, idx) => {
+                    if (ex.biSetId === currentExercise.biSetId) {
+                        groupExercises.push(ex);
+                        if (firstIndex === -1) firstIndex = idx;
+                    }
+                });
 
-                return {
-                    ...state,
-                    exerciseIndex: exerciseIndex - 1,
-                    phase: firstPhaseTarget, // Direct to work
-                    timeLeft: targetGetDur(firstPhaseTarget),
-                    phaseDuration: targetGetDur(firstPhaseTarget),
-                    // setNumber is already correct (N+1)
-                    repNumber: 0,
-                    actualReps: 0,
-                    currentSide: targetExercise.isUnilateral ? (targetExercise.startSide || 'LEFT') : null,
-                    nextStartSide: targetExercise.isUnilateral ? (targetExercise.startSide || 'LEFT') : 'LEFT'
-                };
+                const isLastInGroup = workout.exercises[exerciseIndex + 1]?.biSetId !== currentExercise.biSetId;
+
+                if (isLastInGroup && groupExercises.length > 1) {
+                    // Loop back to the first exercise of the Group -> SKIP PREP (Direct to work)
+                    const targetExercise = workout.exercises[firstIndex];
+
+                    // Calculate initial phase for target exercise
+                    const startConcentricTarget = targetExercise.startConcentric || false;
+                    const targetOrder = startConcentricTarget ? orderInv : orderStd;
+                    const firstPhaseTarget = targetOrder[0];
+
+                    // Get cadence duration
+                    const targetCadence = targetExercise.cadence;
+                    const targetGetDur = (p) => {
+                        if (p === PHASE.ECCENTRIC) return targetCadence.eccentric;
+                        if (p === PHASE.BOTTOM_HOLD) return targetCadence.eccentricPause;
+                        if (p === PHASE.CONCENTRIC) return targetCadence.concentric;
+                        if (p === PHASE.TOP_HOLD) return targetCadence.concentricPause;
+                        return 0;
+                    };
+
+                    return {
+                        ...state,
+                        exerciseIndex: firstIndex,
+                        phase: firstPhaseTarget, // Direct to work
+                        timeLeft: targetGetDur(firstPhaseTarget),
+                        phaseDuration: targetGetDur(firstPhaseTarget),
+                        // setNumber is already correct (N+1)
+                        repNumber: 0,
+                        actualReps: 0,
+                        currentSide: targetExercise.isUnilateral ? (targetExercise.startSide || 'LEFT') : null,
+                        nextStartSide: targetExercise.isUnilateral ? (targetExercise.startSide || 'LEFT') : 'LEFT'
+                    };
+                }
             }
         }
 

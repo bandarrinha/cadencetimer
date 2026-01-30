@@ -111,15 +111,63 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
         const isLinked = current.biSetId && current.biSetId === next.biSetId;
 
         if (isLinked) {
-            // Unlink
-            newExercises[index] = { ...current, biSetId: null };
-            newExercises[index + 1] = { ...next, biSetId: null };
-        } else {
-            // Link
+            // Unlink Logic: Split the group
+            // We are breaking the link between index and index+1.
+            // Items from index+1 onwards that shared the same ID must get a NEW ID (or null if isolated?).
+            // For simplicity/robustness: Assign a NEW random ID to the right-side chunk.
+
+            const oldId = current.biSetId;
             const newId = crypto.randomUUID();
-            newExercises[index] = { ...current, biSetId: newId };
-            newExercises[index + 1] = { ...next, biSetId: newId };
+
+            // Iterate forwards from next (index+1)
+            for (let i = index + 1; i < newExercises.length; i++) {
+                if (newExercises[i].biSetId === oldId) {
+                    newExercises[i] = { ...newExercises[i], biSetId: newId };
+                } else {
+                    // Stop if we hit a different group (shouldn't happen in contiguous block but safe to check)
+                    break;
+                }
+            }
+            // Logic note: If the splitting results in a single item groups, usually we keep the ID or set null.
+            // But keeping unique IDs for single items is harmless (just won't show UI border logic if neighbor doesn't match).
+            // Actually, the UI border logic checks `isLinkedWithNext/Prev`. 
+            // If ID is unique to single item, no neighbors match -> no borders. Correct.
+
+        } else {
+            // Link Logic: Merge groups
+            // We are connecting index and index+1.
+
+            const idToUse = current.biSetId || next.biSetId || crypto.randomUUID();
+            const idToReplace = next.biSetId; // If next had a DIFFERENT ID, we need to update all its group members
+
+            // 1. Ensure current has the target ID
+            newExercises[index] = { ...current, biSetId: idToUse };
+
+            // 2. Ensure next has the target ID
+            newExercises[index + 1] = { ...next, biSetId: idToUse };
+
+            // 3. Propagation
+            // Backward propagation (if current was part of a group, essentially all 'current' group is already idToUse unless we just generated it)
+            // Forward propagation (if next was part of a group, we must update ALL members of that group to idToUse)
+
+            if (idToReplace && idToReplace !== idToUse) {
+                // Next was part of a different group. Find ALL members of that group and merge them.
+                for (let i = 0; i < newExercises.length; i++) {
+                    if (newExercises[i].biSetId === idToReplace) {
+                        newExercises[i] = { ...newExercises[i], biSetId: idToUse };
+                    }
+                }
+            }
+
+            // Also propagate if 'current' just got a NEW ID (was null) but had previous pars? 
+            // No, if current was null, it had no group.
+            // But if current DID have an id (idToUse), we don't need to change its neighbors, they are already idToUse.
         }
+
+        // Clean up: Optional - finding singletons and setting biSetId to null? 
+        // Not strictly necessary but keeps data clean.
+        // Let's leave IDs strictly for grouping. UI handles display based on match.
+
         updateActiveWorkout({ ...activeWorkout, exercises: newExercises });
     };
 
@@ -199,16 +247,33 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                             position: 'relative'
                         }}>
                             {/* Bi-Set Indicator Label */}
-                            {(isLinkedWithNext && !isLinkedWithPrev) && (
-                                <div style={{ position: 'absolute', top: '-10px', right: '10px', background: '#ff9800', color: 'black', fontSize: '0.7em', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>
-                                    BI-SET INÍCIO
-                                </div>
-                            )}
-                            {(isLinkedWithPrev && !isLinkedWithNext) && (
-                                <div style={{ position: 'absolute', bottom: '-10px', right: '10px', background: '#ff9800', color: 'black', fontSize: '0.7em', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', zIndex: 1 }}>
-                                    BI-SET FIM
-                                </div>
-                            )}
+                            {/* Bi-Set Indicator Label */}
+                            {(isLinkedWithNext && !isLinkedWithPrev) && (() => {
+                                // Calculate Group Size
+                                const groupSize = activeWorkout.exercises.filter(e => e.biSetId === ex.biSetId).length;
+                                let label = "BI-SET";
+                                if (groupSize === 3) label = "TRI-SET";
+                                if (groupSize > 3) label = "GIANT SET";
+
+                                return (
+                                    <div style={{ position: 'absolute', top: '-10px', right: '10px', background: '#ff9800', color: 'black', fontSize: '0.7em', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>
+                                        {label} INÍCIO
+                                    </div>
+                                );
+                            })()}
+                            {(isLinkedWithPrev && !isLinkedWithNext) && (() => {
+                                // Calculate Group Size
+                                const groupSize = activeWorkout.exercises.filter(e => e.biSetId === ex.biSetId).length;
+                                let label = "BI-SET";
+                                if (groupSize === 3) label = "TRI-SET";
+                                if (groupSize > 3) label = "GIANT SET";
+
+                                return (
+                                    <div style={{ position: 'absolute', bottom: '-10px', right: '10px', background: '#ff9800', color: 'black', fontSize: '0.7em', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', zIndex: 1 }}>
+                                        {label} FIM
+                                    </div>
+                                );
+                            })()}
 
 
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
