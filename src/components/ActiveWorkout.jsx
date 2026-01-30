@@ -37,36 +37,11 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
             recover(initialState);
             hasRecovered.current = true;
         } else if (workout) {
-            start(workout);
+            start(workout, initialWeights);
             hasRecovered.current = true;
-
-            // Seed initial weights for first set
-            if (initialWeights) {
-                Object.entries(initialWeights).forEach(([exId, weight]) => {
-                    if (weight !== '' && weight !== undefined) {
-                        const parsedWeight = parseFloat(weight);
-
-                        // Check if unilateral to seed both sides?
-                        // For simplicity, just seed generic 1st set. 
-                        // If unilateral, logSetData needs 'side'.
-                        const ex = workout.exercises.find(e => e.id === exId);
-                        if (ex) {
-                            if (ex.isUnilateral) {
-                                // Seed both LEFT and RIGHT for set 1?
-                                // Usually we start with one side. 
-                                // But inputs for weight apply to both sides usually.
-                                // Let's seed LEFT and RIGHT just to be safe if startSide varies.
-                                logSetData(exId, 1, 0, parsedWeight, 0, 'LEFT');
-                                logSetData(exId, 1, 0, parsedWeight, 0, 'RIGHT');
-                            } else {
-                                logSetData(exId, 1, ex.reps || 0, parsedWeight, 0);
-                            }
-                        }
-                    }
-                });
-            }
+            // Seeding removed to prevent dummy history records
         }
-    }, [workout, start, initialState, recover, initialWeights, logSetData]);
+    }, [workout, start, initialState, recover, initialWeights]);
 
 
     // Audio Logic & Auto-Save Logic on Phase Change
@@ -95,6 +70,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
 
                     // CRITICAL: We need the set number of the entries we are editing.
                     // We can find them in weightData by checking the last entries for these IDs.
+                    // NOTE: If we are editing Set 1 and it was just finished, it SHOULD be in weightData.
                     const lastEntry = state.weightData.filter(w => w.exerciseId === exId).pop();
 
                     if (lastEntry) {
@@ -151,7 +127,12 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                 targetExercises.forEach(ex => {
                     const logs = state.weightData.filter(w => w.exerciseId === ex.id);
 
-                    const getLastHistoryWeight = () => {
+                    const getInitialWeight = () => {
+                        // Check initialWeights first
+                        if (initialWeights && initialWeights[ex.id] !== undefined && initialWeights[ex.id] !== '') {
+                            return initialWeights[ex.id];
+                        }
+                        // Fallback to history
                         const entry = history.slice().reverse().find(h =>
                             h.exerciseId === ex.id || h.exerciseName === ex.name
                         );
@@ -174,10 +155,9 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                             // Weight is usually same, take from any
                             let sWeight = leftLog ? leftLog.weight : (rightLog ? rightLog.weight : '');
 
-                            // If weight is missing and it's the first set (or no prev sets in this workout), try history
-                            // We check if there are NO previous sets (setNumber == 1)
+                            // If weight is missing (0) and it's the first set (or no prev sets in this workout), try intial/history
                             if ((!sWeight || sWeight === 0) && targetSet === 1) {
-                                sWeight = getLastHistoryWeight();
+                                sWeight = getInitialWeight();
                             }
                             // If still 0/empty and we have previous sets in THIS workout, use that (inheriting)
                             // (Logic handled by 'weight' persistence in logSetData usually, but explicit check here:)
@@ -205,7 +185,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
 
                             // 1. If First Set and Empty -> History
                             if ((!sWeight || sWeight === 0) && logs.length === 1) {
-                                sWeight = getLastHistoryWeight();
+                                sWeight = getInitialWeight();
                             }
 
                             // 2. If Empty and previous sets exist -> Inherit (fallback)
@@ -251,7 +231,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
         }
         prevTimeRef.current = state.timeLeft;
 
-    }, [state.phase, state.timeLeft, state.phaseDuration, speak, playBeep, logSetData, state.weightData, workout.exercises, state.exerciseIndex]);
+    }, [state.phase, state.timeLeft, state.phaseDuration, speak, playBeep, logSetData, state.weightData, workout.exercises, state.exerciseIndex, initialWeights]);
 
 
     // Manual Save Handler

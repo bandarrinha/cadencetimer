@@ -25,6 +25,7 @@ const initialState = {
     phase: PHASE.IDLE,
     timeLeft: 0,
     phaseDuration: 0, // To calc progress
+    initialWeights: {}, // Weights from preview
     workout: null, // Will be populated on start
     startTime: null, // Timestamp when workout started
     finishTime: null, // Timestamp when workout finished
@@ -35,13 +36,16 @@ const initialState = {
 
 export function timerReducer(state, action) {
     switch (action.type) {
-        case 'INIT':
+        case 'INIT': {
+            const { workout, initialWeights } = action.payload;
             return {
                 ...initialState,
                 status: 'IDLE',
-                workout: action.payload,
+                workout: workout,
+                initialWeights: initialWeights || {},
                 weightData: []
             };
+        }
 
         case 'START':
             return {
@@ -378,7 +382,13 @@ function finishSet(state) {
 
     // Log data internally
     const previousSetData = state.weightData.filter(d => d.exerciseId === currentExercise.id).pop();
-    const suggestedWeight = previousSetData ? previousSetData.weight : 0;
+    let suggestedWeight = previousSetData ? previousSetData.weight : 0;
+
+    // Use initialWeights if no previous data for this exercise
+    if (!previousSetData && state.initialWeights && state.initialWeights[currentExercise.id] !== undefined) {
+        const initW = parseFloat(state.initialWeights[currentExercise.id]);
+        if (!isNaN(initW)) suggestedWeight = initW;
+    }
 
     const setLog = {
         exerciseId: currentExercise.id,
@@ -604,8 +614,8 @@ export const useCadenceTimer = () => {
         dispatch({ type: 'CLEAR_RECOVERY' });
     }, []);
 
-    const start = useCallback((workout) => {
-        dispatch({ type: 'INIT', payload: workout });
+    const start = useCallback((workout, initialWeights = {}) => {
+        dispatch({ type: 'INIT', payload: { workout, initialWeights } });
         setTimeout(() => dispatch({ type: 'START' }), 0);
     }, []);
 
