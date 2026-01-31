@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Trash2, ArrowLeft, Link, Unlink } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, Link, Unlink, ArrowUp, ArrowDown, Edit } from 'lucide-react';
 
 
 const DEFAULT_EXERCISE = {
@@ -194,6 +194,27 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
         }
     };
 
+    const renameWorkout = () => {
+        const newName = prompt("Novo nome para o treino:", activeWorkout.name);
+        if (newName && newName !== activeWorkout.name) {
+            updateActiveWorkout({ ...activeWorkout, name: newName });
+        }
+    };
+
+    const moveExercise = (index, direction) => {
+        const newExercises = [...activeWorkout.exercises];
+        const targetIndex = index + direction;
+
+        if (targetIndex < 0 || targetIndex >= newExercises.length) return;
+
+        // Swap
+        const temp = newExercises[index];
+        newExercises[index] = newExercises[targetIndex];
+        newExercises[targetIndex] = temp;
+
+        updateActiveWorkout({ ...activeWorkout, exercises: newExercises });
+    };
+
 
     return (
         <div className="setup-container" style={{ padding: '20px', maxWidth: '800px', margin: '0 auto', textAlign: 'left', paddingBottom: '100px' }}>
@@ -218,6 +239,9 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                         </select>
                     </div>
                     <div style={{ display: 'flex', gap: '4px' }}>
+                        <button onClick={renameWorkout} style={{ padding: '8px 12px', background: '#333', color: 'white', borderRadius: '6px' }} title="Renomear Treino">
+                            <Edit size={18} />
+                        </button>
                         <button onClick={createWorkout} style={{ padding: '8px 12px', background: '#333', color: 'white', borderRadius: '6px' }} title="Novo Treino">
                             <Plus size={18} />
                         </button>
@@ -246,7 +270,6 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                             borderLeft: isLinkedWithPrev || isLinkedWithNext ? '4px solid #ff9800' : 'none',
                             position: 'relative'
                         }}>
-                            {/* Bi-Set Indicator Label */}
                             {/* Bi-Set Indicator Label */}
                             {(isLinkedWithNext && !isLinkedWithPrev) && (() => {
                                 // Calculate Group Size
@@ -285,7 +308,23 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                                         placeholder="Nome do Exercício"
                                     />
                                 </div>
-                                <button onClick={() => removeExercise(idx)} style={{ background: 'transparent', color: '#ff4d4d', padding: 0 }}><Trash2 /></button>
+                                <div style={{ display: 'flex', gap: '4px' }}>
+                                    <button
+                                        onClick={() => moveExercise(idx, -1)}
+                                        disabled={idx === 0}
+                                        style={{ background: 'transparent', color: idx === 0 ? '#444' : '#ccc', padding: '4px' }}
+                                    >
+                                        <ArrowUp size={20} />
+                                    </button>
+                                    <button
+                                        onClick={() => moveExercise(idx, 1)}
+                                        disabled={idx === activeWorkout.exercises.length - 1}
+                                        style={{ background: 'transparent', color: idx === activeWorkout.exercises.length - 1 ? '#444' : '#ccc', padding: '4px' }}
+                                    >
+                                        <ArrowDown size={20} />
+                                    </button>
+                                    <button onClick={() => removeExercise(idx)} style={{ background: 'transparent', color: '#ff4d4d', padding: '4px', marginLeft: '4px' }}><Trash2 size={20} /></button>
+                                </div>
                             </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: 'min-content 1fr', gap: '12px', marginBottom: '16px' }}>
