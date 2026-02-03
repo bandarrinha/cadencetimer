@@ -405,253 +405,277 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
             display: 'flex', flexDirection: 'column', zIndex: 100
         }}>
 
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', color: (state.phase === PHASE.PREP || state.phase === PHASE.FINISHED) ? 'white' : 'black' }}>
-
-                {/* Header Info */}
-                <div style={{ position: 'absolute', top: 20, left: 0, right: 0, padding: '0 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                        <span style={{ fontSize: '1.2em', fontWeight: 600 }}>{currentExercise.name}</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '1.2em' }}>Série {displaySetNumber}/{currentExercise.sets}</span>
-                            {/* Side Indicator */}
-                            {currentExercise.isUnilateral && state.currentSide && (
-                                <span style={{
-                                    fontSize: '1.5em',
-                                    padding: '4px 12px',
-                                    background: state.currentSide === 'LEFT' ? 'var(--color-primary)' : '#ff9800',
-                                    color: 'black',
-                                    borderRadius: '6px',
-                                    fontWeight: '900',
-                                    boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-                                    marginLeft: '8px'
-                                }}>
-                                    {state.currentSide === 'LEFT' ? 'LADO ESQ' : 'LADO DIR'}
-                                </span>
-                            )}
-                        </div>
+            {/* Header Info - Relative & Flex */}
+            <div style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexShrink: 0, color: (state.phase === PHASE.PREP || state.phase === PHASE.FINISHED) ? 'white' : 'black' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                    <span style={{ fontSize: '1.2em', fontWeight: 600 }}>{currentExercise.name}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '1.2em' }}>Série {displaySetNumber}/{currentExercise.sets}</span>
+                        {/* Side Indicator */}
+                        {currentExercise.isUnilateral && state.currentSide && (
+                            <span style={{
+                                fontSize: '1.5em',
+                                padding: '4px 12px',
+                                background: state.currentSide === 'LEFT' ? 'var(--color-primary)' : '#ff9800',
+                                color: 'black',
+                                borderRadius: '6px',
+                                fontWeight: '900',
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                                marginLeft: '8px'
+                            }}>
+                                {state.currentSide === 'LEFT' ? 'LADO ESQ' : 'LADO DIR'}
+                            </span>
+                        )}
                     </div>
-
-                    {/* Global Timer */}
-                    {state.startTime && (
-                        <div style={{ fontSize: '1em', opacity: 0.8, fontWeight: 'bold' }}>
-                            {(() => {
-                                const diff = Math.floor(state.totalWorkoutTime || 0);
-                                const m = Math.floor(diff / 60).toString().padStart(2, '0');
-                                const s = (diff % 60).toString().padStart(2, '0');
-                                return `${m}:${s}`;
-                            })()}
-                        </div>
-                    )}
                 </div>
 
-                {/* Primary Display: Cadence Countdown (Big) */}
-                {/* MODIFIED: PREP Phase is now INCLUDED here */}
-                {(!isResting && state.phase !== PHASE.FINISHED) && (
-                    <div style={{
-                        fontSize: '12rem', fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums',
-                        transition: 'all 0.3s ease',
-                        marginBottom: '10px'
-                    }}>
-                        {currentExercise.isIsometric && currentExercise.failureMode && state.timeLeft <= 0
-                            ? '+' + Math.abs(Math.floor(state.timeLeft)) // Overtime Display
-                            : Math.ceil(state.timeLeft)
-                        }
+                {/* Global Timer */}
+                {state.startTime && (
+                    <div style={{ fontSize: '1em', opacity: 0.8, fontWeight: 'bold' }}>
+                        {(() => {
+                            const diff = Math.floor(state.totalWorkoutTime || 0);
+                            const m = Math.floor(diff / 60).toString().padStart(2, '0');
+                            const s = (diff % 60).toString().padStart(2, '0');
+                            return `${m}:${s}`;
+                        })()}
                     </div>
                 )}
+            </div>
 
-                {/* Secondary Display: Executed Reps/Time (Small, with Feedback) */}
-                {/* Keep Prep HIDDEN for Reps */}
-                {(!isResting && state.phase !== PHASE.FINISHED && state.phase !== PHASE.PREP) && (
-                    <div style={{
-                        marginTop: '10px',
-                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px'
-                    }}>
+            {/* Main Content Area - Scrollable */}
+            <div style={{
+                flex: 1,
+                overflowY: 'auto',
+                display: 'flex',
+                alignItems: 'center',
+                flexDirection: 'column',
+                width: '100%',
+                position: 'relative'
+            }}>
+                <div style={{
+                    margin: 'auto 0',
+                    width: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    padding: '20px 0',
+                    color: (state.phase === PHASE.PREP || state.phase === PHASE.FINISHED) ? 'white' : 'black'
+                }}>
+
+                    {/* Primary Display: Cadence Countdown (Big) */}
+                    {/* MODIFIED: PREP Phase is now INCLUDED here */}
+                    {(!isResting && state.phase !== PHASE.FINISHED) && (
                         <div style={{
-                            fontSize: '3rem', fontWeight: 'bold',
+                            fontSize: '12rem', fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums',
                             transition: 'all 0.3s ease',
-                            textAlign: 'center',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            ...feedbackStyle // Highlight applied here
+                            marginBottom: '10px'
                         }}>
-                            {currentExercise.isIsometric
-                                ? Math.floor(state.isometricTime) + 's'
-                                : (
-                                    <span>
-                                        Rep {state.actualReps + 1}
-                                    </span>
-                                )
+                            {currentExercise.isIsometric && currentExercise.failureMode && state.timeLeft <= 0
+                                ? '+' + Math.abs(Math.floor(state.timeLeft)) // Overtime Display
+                                : Math.ceil(state.timeLeft)
                             }
                         </div>
+                    )}
 
-                        {/* Meta Info Below Reps */}
-                        {(currentExercise.failureMode || !currentExercise.isIsometric) && (
-                            <div style={{ opacity: 0.7, fontSize: '1.2em' }}>
-                                {currentExercise.failureMode
-                                    ? `Meta: ${currentExercise.repsMin || currentExercise.reps} - ${currentExercise.repsMax || currentExercise.reps}`
-                                    : `Meta: ${currentExercise.reps}`
+                    {/* Secondary Display: Executed Reps/Time (Small, with Feedback) */}
+                    {/* Keep Prep HIDDEN for Reps */}
+                    {(!isResting && state.phase !== PHASE.FINISHED && state.phase !== PHASE.PREP) && (
+                        <div style={{
+                            marginTop: '10px',
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px'
+                        }}>
+                            <div style={{
+                                fontSize: '3rem', fontWeight: 'bold',
+                                transition: 'all 0.3s ease',
+                                textAlign: 'center',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                ...feedbackStyle // Highlight applied here
+                            }}>
+                                {currentExercise.isIsometric
+                                    ? Math.floor(state.isometricTime) + 's'
+                                    : (
+                                        <span>
+                                            Rep {state.actualReps + 1}
+                                        </span>
+                                    )
                                 }
                             </div>
-                        )}
 
-                        {/* Feedback Label Badge */}
-                        {feedbackStatus !== 'BELOW' && currentExercise.failureMode && (
+                            {/* Meta Info Below Reps */}
+                            {(currentExercise.failureMode || !currentExercise.isIsometric) && (
+                                <div style={{ opacity: 0.7, fontSize: '1.2em' }}>
+                                    {currentExercise.failureMode
+                                        ? `Meta: ${currentExercise.repsMin || currentExercise.reps} - ${currentExercise.repsMax || currentExercise.reps}`
+                                        : `Meta: ${currentExercise.reps}`
+                                    }
+                                </div>
+                            )}
+
+                            {/* Feedback Label Badge */}
+                            {feedbackStatus !== 'BELOW' && currentExercise.failureMode && (
+                                <div style={{
+                                    fontSize: '1.2rem', fontWeight: 'bold',
+                                    color: feedbackStatus === 'IN_RANGE' ? '#1b5e20' : '#4a148c',
+                                    background: 'rgba(255,255,255,0.7)',
+                                    padding: '2px 12px', borderRadius: '8px'
+                                }}>
+                                    {feedbackStatus === 'IN_RANGE' ? 'DENTRO DA META' : 'ACIMA DA META'}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+
+                    {/* Rest UI with Inputs */}
+                    {isResting && (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', width: '100%', maxWidth: '600px', padding: '0 20px' }}>
+                            <div style={{ fontSize: '8rem', fontWeight: 900 }}>{Math.ceil(state.timeLeft)}</div>
+
                             <div style={{
-                                fontSize: '1.2rem', fontWeight: 'bold',
-                                color: feedbackStatus === 'IN_RANGE' ? '#1b5e20' : '#4a148c',
-                                background: 'rgba(255,255,255,0.7)',
-                                padding: '2px 12px', borderRadius: '8px'
+                                display: 'flex',
+                                flexDirection: activeInputExercises.length > 1 ? 'row' : 'column',
+                                gap: '12px',
+                                justifyContent: 'center',
+                                width: '100%',
+                                flexWrap: 'wrap'
                             }}>
-                                {feedbackStatus === 'IN_RANGE' ? 'DENTRO DA META' : 'ACIMA DA META'}
-                            </div>
-                        )}
-                    </div>
-                )}
-
-
-                {/* Rest UI with Inputs */}
-                {isResting && (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', width: '100%', maxWidth: '600px', padding: '0 20px' }}>
-                        <div style={{ fontSize: '8rem', fontWeight: 900 }}>{Math.ceil(state.timeLeft)}</div>
-
-                        <div style={{
-                            display: 'flex',
-                            flexDirection: activeInputExercises.length > 1 ? 'row' : 'column',
-                            gap: '12px',
-                            justifyContent: 'center',
-                            width: '100%',
-                            flexWrap: 'wrap'
-                        }}>
-                            {activeInputExercises.map(ex => {
-                                const advice = getAdvice(ex);
-                                return (
-                                    <div key={ex.id} style={{
-                                        background: 'rgba(255,255,255,0.9)',
-                                        padding: '10px',
-                                        borderRadius: '16px',
-                                        color: 'black',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        gap: '8px',
-                                        flex: 1,
-                                        minWidth: '140px'
-                                    }}>
-                                        <div style={{ fontWeight: 'bold', fontSize: '0.9em', textAlign: 'center', marginBottom: '4px', borderBottom: '1px solid #ddd', paddingBottom: '4px' }}>
-                                            {ex.name}
-                                        </div>
-
-                                        {/* Advice Badge */}
-                                        {advice && (
-                                            <div style={{
-                                                textAlign: 'center', fontSize: '1rem',
-                                                background: advice.type === 'maintain' ? '#e8f5e9' : (advice.type === 'decrease' ? '#ffebee' : '#e3f2fd'),
-                                                color: advice.type === 'maintain' ? '#2e7d32' : (advice.type === 'decrease' ? '#c62828' : '#1565c0'),
-                                                padding: '2px', borderRadius: '8px', fontWeight: 'bold',
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px',
-                                                whiteSpace: 'nowrap'
-                                            }}>
-                                                <WeightAdviceIcon advice={advice.type} />
-                                                <span>{advice.text}</span>
+                                {activeInputExercises.map(ex => {
+                                    const advice = getAdvice(ex);
+                                    return (
+                                        <div key={ex.id} style={{
+                                            background: 'rgba(255,255,255,0.9)',
+                                            padding: '10px',
+                                            borderRadius: '16px',
+                                            color: 'black',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '8px',
+                                            flex: 1,
+                                            minWidth: '140px'
+                                        }}>
+                                            <div style={{ fontWeight: 'bold', fontSize: '0.9em', textAlign: 'center', marginBottom: '4px', borderBottom: '1px solid #ddd', paddingBottom: '4px' }}>
+                                                {ex.name}
                                             </div>
-                                        )}
 
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                            <label style={{ fontSize: '0.9rem', marginBottom: '4px' }}>Carga (kg)</label>
-                                            <NumberInput
-                                                value={inputValues[ex.id]?.weight || ''}
-                                                onChange={(v) => handleInputSave(ex.id, 'weight', v)}
-                                                placeholder="0"
-                                                compact={true}
-                                            />
-                                        </div>
+                                            {/* Advice Badge */}
+                                            {advice && (
+                                                <div style={{
+                                                    textAlign: 'center', fontSize: '1rem',
+                                                    background: advice.type === 'maintain' ? '#e8f5e9' : (advice.type === 'decrease' ? '#ffebee' : '#e3f2fd'),
+                                                    color: advice.type === 'maintain' ? '#2e7d32' : (advice.type === 'decrease' ? '#c62828' : '#1565c0'),
+                                                    padding: '2px', borderRadius: '8px', fontWeight: 'bold',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px',
+                                                    whiteSpace: 'nowrap'
+                                                }}>
+                                                    <WeightAdviceIcon advice={advice.type} />
+                                                    <span>{advice.text}</span>
+                                                </div>
+                                            )}
 
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                            <label style={{ fontSize: '0.9rem', marginBottom: '4px' }}>
-                                                {ex.isIsometric ? 'Tempo (s)' : (ex.isUnilateral ? 'Reps (Esq)' : 'Reps')}
-                                            </label>
-                                            <NumberInput
-                                                value={ex.isUnilateral ? (inputValues[ex.id]?.repsLeft || '') : (inputValues[ex.id]?.reps || '')}
-                                                onChange={(v) => handleInputSave(ex.id, ex.isUnilateral ? 'repsLeft' : 'reps', v)}
-                                                placeholder="0"
-                                                compact={true}
-                                            />
-                                        </div>
-
-                                        {ex.isUnilateral && (
                                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                                <label style={{ fontSize: '0.9rem', marginBottom: '4px' }}>
-                                                    Reps (Dir)
-                                                </label>
+                                                <label style={{ fontSize: '0.9rem', marginBottom: '4px' }}>Carga (kg)</label>
                                                 <NumberInput
-                                                    value={inputValues[ex.id]?.repsRight || ''}
-                                                    onChange={(v) => handleInputSave(ex.id, 'repsRight', v)}
+                                                    value={inputValues[ex.id]?.weight || ''}
+                                                    onChange={(v) => handleInputSave(ex.id, 'weight', v)}
                                                     placeholder="0"
                                                     compact={true}
                                                 />
                                             </div>
-                                        )}
 
-                                        {/* Unilateral Invert Toggle */}
-                                        {ex.isUnilateral && (
-                                            <button
-                                                onClick={() => setStartSide(state.nextStartSide === 'LEFT' ? 'RIGHT' : 'LEFT')}
-                                                style={{
-                                                    marginTop: '8px',
-                                                    fontSize: '0.8em',
-                                                    padding: '6px 12px',
-                                                    background: '#333',
-                                                    color: 'white',
-                                                    border: '1px solid #555',
-                                                    borderRadius: '4px',
-                                                    cursor: 'pointer',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: '6px'
-                                                }}
-                                            >
-                                                <ArrowLeftRight size={14} />
-                                                <span>Próx: {state.nextStartSide === 'LEFT' ? 'Esq' : 'Dir'}</span>
-                                            </button>
-                                        )}
-                                    </div>
-                                );
-                            })}
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                                <label style={{ fontSize: '0.9rem', marginBottom: '4px' }}>
+                                                    {ex.isIsometric ? 'Tempo (s)' : (ex.isUnilateral ? 'Reps (Esq)' : 'Reps')}
+                                                </label>
+                                                <NumberInput
+                                                    value={ex.isUnilateral ? (inputValues[ex.id]?.repsLeft || '') : (inputValues[ex.id]?.reps || '')}
+                                                    onChange={(v) => handleInputSave(ex.id, ex.isUnilateral ? 'repsLeft' : 'reps', v)}
+                                                    placeholder="0"
+                                                    compact={true}
+                                                />
+                                            </div>
+
+                                            {ex.isUnilateral && (
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                                    <label style={{ fontSize: '0.9rem', marginBottom: '4px' }}>
+                                                        Reps (Dir)
+                                                    </label>
+                                                    <NumberInput
+                                                        value={inputValues[ex.id]?.repsRight || ''}
+                                                        onChange={(v) => handleInputSave(ex.id, 'repsRight', v)}
+                                                        placeholder="0"
+                                                        compact={true}
+                                                    />
+                                                </div>
+                                            )}
+
+                                            {/* Unilateral Invert Toggle */}
+                                            {ex.isUnilateral && (
+                                                <button
+                                                    onClick={() => setStartSide(state.nextStartSide === 'LEFT' ? 'RIGHT' : 'LEFT')}
+                                                    style={{
+                                                        marginTop: '8px',
+                                                        fontSize: '0.8em',
+                                                        padding: '6px 12px',
+                                                        background: '#333',
+                                                        color: 'white',
+                                                        border: '1px solid #555',
+                                                        borderRadius: '4px',
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '6px'
+                                                    }}
+                                                >
+                                                    <ArrowLeftRight size={14} />
+                                                    <span>Próx: {state.nextStartSide === 'LEFT' ? 'Esq' : 'Dir'}</span>
+                                                </button>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                <div style={{ fontSize: '2rem', fontWeight: 700, opacity: 0.8, marginTop: '20px' }}>
-                    {getPhaseName()}
+                    <div style={{ fontSize: '2rem', fontWeight: 700, opacity: 0.8, marginTop: '20px' }}>
+                        {getPhaseName()}
+                    </div>
+
+
+
+                    {/* Rest Next Info */}
+                    {isResting && (
+                        <div style={{ fontSize: '1.5rem', marginTop: '20px' }}>
+                            Próximo: {state.phase === PHASE.REST_EXERCISE ?
+                                workout.exercises[state.exerciseIndex + 1]?.name :
+                                `Série ${state.setNumber}`}
+                        </div>
+                    )}
+
+                    {/* Failure / Finish Button */}
+                    {!isResting && state.phase !== PHASE.FINISHED && state.phase !== PHASE.PREP && currentExercise.failureMode && (
+                        <button
+                            onClick={registerFailure}
+                            style={{
+                                marginTop: '40px', padding: '20px 40px', fontSize: '1.5rem',
+                                background: '#ff4d4d', color: 'white', border: '4px solid white', borderRadius: '50px',
+                                boxShadow: '0 4px 15px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '10px'
+                            }}
+                        >
+                            <AlertTriangle size={32} />
+                            FALHA / ACABEI
+                        </button>
+                    )}
                 </div>
+            </div>
 
-
-
-                {/* Rest Next Info */}
-                {isResting && (
-                    <div style={{ fontSize: '1.5rem', marginTop: '20px' }}>
-                        Próximo: {state.phase === PHASE.REST_EXERCISE ?
-                            workout.exercises[state.exerciseIndex + 1]?.name :
-                            `Série ${state.setNumber}`}
-                    </div>
-                )}
-
-                {/* Failure / Finish Button */}
-                {!isResting && state.phase !== PHASE.FINISHED && state.phase !== PHASE.PREP && currentExercise.failureMode && (
-                    <button
-                        onClick={registerFailure}
-                        style={{
-                            marginTop: '40px', padding: '20px 40px', fontSize: '1.5rem',
-                            background: '#ff4d4d', color: 'white', border: '4px solid white', borderRadius: '50px',
-                            boxShadow: '0 4px 15px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '10px'
-                        }}
-                    >
-                        <AlertTriangle size={32} />
-                        FALHA / ACABEI
-                    </button>
-                )}
+            {/* Progress Bar (Above Controls) */}
+            <div style={{ height: '10px', background: 'rgba(0,0,0,0.1)', width: '100%', flexShrink: 0 }}>
+                <div style={{ height: '100%', background: 'currentColor', width: `${progressPct}%`, transition: 'width 0.1s linear' }} />
             </div>
 
             {/* Controls */}
-            <div style={{ padding: '30px', display: 'flex', justifyContent: 'space-around', background: 'rgba(0,0,0,0.2)', backdropFilter: 'blur(10px)' }}>
+            <div style={{ padding: '30px', display: 'flex', justifyContent: 'space-around', background: 'rgba(0,0,0,0.2)', backdropFilter: 'blur(10px)', flexShrink: 0 }}>
                 <button onClick={() => setShowExitConfirm(true)} style={{ background: 'transparent', color: 'white', border: '1px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px 20px', borderRadius: '8px' }}>
                     <X /> Sair
                 </button>
@@ -665,11 +689,6 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                 <button onClick={skip} style={{ background: 'transparent', color: 'white', border: '1px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px 20px', borderRadius: '8px' }}>
                     <SkipForward /> Pular
                 </button>
-            </div>
-
-            {/* Progress Bar */}
-            <div style={{ height: '10px', background: 'rgba(0,0,0,0.1)', width: '100%', position: 'absolute', bottom: '124px' }}>
-                <div style={{ height: '100%', background: 'currentColor', width: `${progressPct}%`, transition: 'width 0.1s linear' }} />
             </div>
 
             {/* Exit Modal */}

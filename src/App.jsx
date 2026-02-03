@@ -131,7 +131,7 @@ function App() {
                 onChange={(e) => setActiveWorkoutId(e.target.value)}
                 style={{ width: '100%', padding: '12px', borderRadius: '8px', background: '#333', color: 'white', border: '1px solid #444', fontSize: '1.1em' }}
               >
-                {workouts.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                {[...workouts].sort((a, b) => a.name.localeCompare(b.name)).map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
               </select>
             </div>
 

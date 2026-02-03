@@ -235,7 +235,7 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                             onChange={(e) => setActiveWorkoutId(e.target.value)}
                             style={{ padding: '8px', borderRadius: '8px', background: '#333', color: 'white', border: 'none', fontSize: '1.1em', width: '100%' }}
                         >
-                            {workouts.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                            {[...workouts].sort((a, b) => a.name.localeCompare(b.name)).map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                         </select>
                     </div>
                     <div style={{ display: 'flex', gap: '4px' }}>
