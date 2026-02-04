@@ -406,7 +406,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
         }}>
 
             {/* Header Info - Relative & Flex */}
-            <div style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexShrink: 0, color: (state.phase === PHASE.PREP || state.phase === PHASE.FINISHED) ? 'white' : 'black' }}>
+            <div style={{ padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexShrink: 0, color: (state.phase === PHASE.PREP || state.phase === PHASE.FINISHED) ? 'white' : 'black' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
                     <span style={{ fontSize: '1.2em', fontWeight: 600 }}>{currentExercise.name}</span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -414,8 +414,8 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                         {/* Side Indicator */}
                         {currentExercise.isUnilateral && state.currentSide && (
                             <span style={{
-                                fontSize: '1.5em',
-                                padding: '4px 12px',
+                                fontSize: '1.2em',
+                                padding: '4px 10px',
                                 background: state.currentSide === 'LEFT' ? 'var(--color-primary)' : '#ff9800',
                                 color: 'black',
                                 borderRadius: '6px',
@@ -458,7 +458,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
-                    padding: '20px 0',
+                    padding: '10px 0',
                     color: (state.phase === PHASE.PREP || state.phase === PHASE.FINISHED) ? 'white' : 'black'
                 }}>
 
@@ -466,9 +466,9 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                     {/* MODIFIED: PREP Phase is now INCLUDED here */}
                     {(!isResting && state.phase !== PHASE.FINISHED) && (
                         <div style={{
-                            fontSize: '12rem', fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums',
+                            fontSize: '10rem', fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums',
                             transition: 'all 0.3s ease',
-                            marginBottom: '10px'
+                            marginBottom: '0px'
                         }}>
                             {currentExercise.isIsometric && currentExercise.failureMode && state.timeLeft <= 0
                                 ? '+' + Math.abs(Math.floor(state.timeLeft)) // Overtime Display
@@ -481,11 +481,11 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                     {/* Keep Prep HIDDEN for Reps */}
                     {(!isResting && state.phase !== PHASE.FINISHED && state.phase !== PHASE.PREP) && (
                         <div style={{
-                            marginTop: '10px',
+                            marginTop: '0px',
                             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px'
                         }}>
                             <div style={{
-                                fontSize: '3rem', fontWeight: 'bold',
+                                fontSize: '2.5rem', fontWeight: 'bold',
                                 transition: 'all 0.3s ease',
                                 textAlign: 'center',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -528,13 +528,13 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
 
                     {/* Rest UI with Inputs */}
                     {isResting && (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', width: '100%', maxWidth: '600px', padding: '0 20px' }}>
-                            <div style={{ fontSize: '8rem', fontWeight: 900 }}>{Math.ceil(state.timeLeft)}</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', width: '100%', maxWidth: '600px', padding: '0 10px' }}>
+                            <div style={{ fontSize: '6rem', fontWeight: 900 }}>{Math.ceil(state.timeLeft)}</div>
 
                             <div style={{
                                 display: 'flex',
                                 flexDirection: activeInputExercises.length > 1 ? 'row' : 'column',
-                                gap: '12px',
+                                gap: '8px',
                                 justifyContent: 'center',
                                 width: '100%',
                                 flexWrap: 'wrap'
@@ -549,9 +549,9 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                                             color: 'black',
                                             display: 'flex',
                                             flexDirection: 'column',
-                                            gap: '8px',
+                                            gap: '4px',
                                             flex: 1,
-                                            minWidth: '140px'
+                                            minWidth: '130px'
                                         }}>
                                             <div style={{ fontWeight: 'bold', fontSize: '0.9em', textAlign: 'center', marginBottom: '4px', borderBottom: '1px solid #ddd', paddingBottom: '4px' }}>
                                                 {ex.name}
@@ -560,7 +560,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                                             {/* Advice Badge */}
                                             {advice && (
                                                 <div style={{
-                                                    textAlign: 'center', fontSize: '1rem',
+                                                    textAlign: 'center', fontSize: '0.9rem',
                                                     background: advice.type === 'maintain' ? '#e8f5e9' : (advice.type === 'decrease' ? '#ffebee' : '#e3f2fd'),
                                                     color: advice.type === 'maintain' ? '#2e7d32' : (advice.type === 'decrease' ? '#c62828' : '#1565c0'),
                                                     padding: '2px', borderRadius: '8px', fontWeight: 'bold',
@@ -573,7 +573,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                                             )}
 
                                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                                <label style={{ fontSize: '0.9rem', marginBottom: '4px' }}>Carga (kg)</label>
+                                                <label style={{ fontSize: '0.8rem', marginBottom: '2px' }}>Carga (kg)</label>
                                                 <NumberInput
                                                     value={inputValues[ex.id]?.weight || ''}
                                                     onChange={(v) => handleInputSave(ex.id, 'weight', v)}
@@ -583,7 +583,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                                             </div>
 
                                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                                <label style={{ fontSize: '0.9rem', marginBottom: '4px' }}>
+                                                <label style={{ fontSize: '0.8rem', marginBottom: '2px' }}>
                                                     {ex.isIsometric ? 'Tempo (s)' : (ex.isUnilateral ? 'Reps (Esq)' : 'Reps')}
                                                 </label>
                                                 <NumberInput
@@ -596,7 +596,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
 
                                             {ex.isUnilateral && (
                                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                                    <label style={{ fontSize: '0.9rem', marginBottom: '4px' }}>
+                                                    <label style={{ fontSize: '0.8rem', marginBottom: '2px' }}>
                                                         Reps (Dir)
                                                     </label>
                                                     <NumberInput
@@ -613,9 +613,9 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                                                 <button
                                                     onClick={() => setStartSide(state.nextStartSide === 'LEFT' ? 'RIGHT' : 'LEFT')}
                                                     style={{
-                                                        marginTop: '8px',
-                                                        fontSize: '0.8em',
-                                                        padding: '6px 12px',
+                                                        marginTop: '6px',
+                                                        fontSize: '0.7em',
+                                                        padding: '4px 8px',
                                                         background: '#333',
                                                         color: 'white',
                                                         border: '1px solid #555',
@@ -626,7 +626,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                                                         gap: '6px'
                                                     }}
                                                 >
-                                                    <ArrowLeftRight size={14} />
+                                                    <ArrowLeftRight size={12} />
                                                     <span>Próx: {state.nextStartSide === 'LEFT' ? 'Esq' : 'Dir'}</span>
                                                 </button>
                                             )}
@@ -637,7 +637,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                         </div>
                     )}
 
-                    <div style={{ fontSize: '2rem', fontWeight: 700, opacity: 0.8, marginTop: '20px' }}>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 700, opacity: 0.8, marginTop: '10px' }}>
                         {getPhaseName()}
                     </div>
 
@@ -645,7 +645,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
 
                     {/* Rest Next Info */}
                     {isResting && (
-                        <div style={{ fontSize: '1.5rem', marginTop: '20px' }}>
+                        <div style={{ fontSize: '1.2rem', marginTop: '10px' }}>
                             Próximo: {state.phase === PHASE.REST_EXERCISE ?
                                 workout.exercises[state.exerciseIndex + 1]?.name :
                                 `Série ${state.setNumber}`}
@@ -657,12 +657,12 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                         <button
                             onClick={registerFailure}
                             style={{
-                                marginTop: '40px', padding: '20px 40px', fontSize: '1.5rem',
+                                marginTop: '20px', padding: '15px 30px', fontSize: '1.2rem',
                                 background: '#ff4d4d', color: 'white', border: '4px solid white', borderRadius: '50px',
-                                boxShadow: '0 4px 15px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '10px'
+                                boxShadow: '0 4px 15px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', gap: '8px'
                             }}
                         >
-                            <AlertTriangle size={32} />
+                            <AlertTriangle size={24} />
                             FALHA / ACABEI
                         </button>
                     )}
@@ -670,23 +670,23 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
             </div>
 
             {/* Progress Bar (Above Controls) */}
-            <div style={{ height: '10px', background: 'rgba(0,0,0,0.1)', width: '100%', flexShrink: 0 }}>
+            <div style={{ height: '8px', background: 'rgba(0,0,0,0.1)', width: '100%', flexShrink: 0 }}>
                 <div style={{ height: '100%', background: 'currentColor', width: `${progressPct}%`, transition: 'width 0.1s linear' }} />
             </div>
 
             {/* Controls */}
-            <div style={{ padding: '30px', display: 'flex', justifyContent: 'space-around', background: 'rgba(0,0,0,0.2)', backdropFilter: 'blur(10px)', flexShrink: 0 }}>
-                <button onClick={() => setShowExitConfirm(true)} style={{ background: 'transparent', color: 'white', border: '1px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px 20px', borderRadius: '8px' }}>
+            <div style={{ padding: '10px 20px', display: 'flex', justifyContent: 'space-around', background: 'rgba(0,0,0,0.2)', backdropFilter: 'blur(10px)', flexShrink: 0 }}>
+                <button onClick={() => setShowExitConfirm(true)} style={{ background: 'transparent', color: 'white', border: '1px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '8px 16px', borderRadius: '8px' }}>
                     <X /> Sair
                 </button>
 
                 {state.phase !== PHASE.FINISHED && (
-                    <button onClick={state.status === 'RUNNING' ? pause : resume} style={{ background: 'white', color: 'black', width: '64px', height: '64px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        {state.status === 'RUNNING' ? <Pause size={32} fill="black" /> : <Play size={32} fill="black" />}
+                    <button onClick={state.status === 'RUNNING' ? pause : resume} style={{ background: 'white', color: 'black', width: '56px', height: '56px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {state.status === 'RUNNING' ? <Pause size={28} fill="black" /> : <Play size={28} fill="black" />}
                     </button>
                 )}
 
-                <button onClick={skip} style={{ background: 'transparent', color: 'white', border: '1px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px 20px', borderRadius: '8px' }}>
+                <button onClick={skip} style={{ background: 'transparent', color: 'white', border: '1px solid white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '8px 16px', borderRadius: '8px' }}>
                     <SkipForward /> Pular
                 </button>
             </div>
