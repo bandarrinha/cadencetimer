@@ -526,129 +526,190 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                     )}
 
 
-                    {/* Rest UI with Inputs */}
+                    {/* Rest UI with Inputs - Mobile-First Layout */}
                     {isResting && (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', width: '100%', maxWidth: '600px', padding: '0 10px' }}>
-                            <div style={{ fontSize: '6rem', fontWeight: 900 }}>{Math.ceil(state.timeLeft)}</div>
+                        <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '6px',
+                            width: '100%',
+                            padding: '0 8px',
+                            boxSizing: 'border-box'
+                        }}>
+                            {/* Timer */}
+                            <div style={{ fontSize: '5rem', fontWeight: 900, lineHeight: 1 }}>
+                                {Math.ceil(state.timeLeft)}
+                            </div>
 
+                            {/* Phase Label */}
+                            <div style={{ fontSize: '1.1rem', fontWeight: 700, opacity: 0.85, marginBottom: '2px' }}>
+                                {getPhaseName()}
+                            </div>
+
+                            {/* Exercise Input Cards */}
                             <div style={{
                                 display: 'flex',
-                                flexDirection: activeInputExercises.length > 1 ? 'row' : 'column',
-                                gap: '8px',
-                                justifyContent: 'center',
-                                width: '100%',
-                                flexWrap: 'wrap'
+                                flexDirection: 'column',
+                                gap: '6px',
+                                width: '100%'
                             }}>
                                 {activeInputExercises.map(ex => {
                                     const advice = getAdvice(ex);
                                     return (
                                         <div key={ex.id} style={{
-                                            background: 'rgba(255,255,255,0.9)',
-                                            padding: '10px',
-                                            borderRadius: '16px',
-                                            color: 'black',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            gap: '4px',
-                                            flex: 1,
-                                            minWidth: '130px'
+                                            background: 'rgba(255,255,255,0.95)',
+                                            padding: '6px 8px',
+                                            borderRadius: '10px',
+                                            color: 'black'
                                         }}>
-                                            <div style={{ fontWeight: 'bold', fontSize: '0.9em', textAlign: 'center', marginBottom: '4px', borderBottom: '1px solid #ddd', paddingBottom: '4px' }}>
-                                                {ex.name}
+                                            {/* Name + Advice */}
+                                            <div style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                marginBottom: '4px'
+                                            }}>
+                                                <span style={{ fontWeight: 'bold', fontSize: '0.9em' }}>
+                                                    {ex.name}
+                                                </span>
+                                                {advice && (
+                                                    <span style={{
+                                                        fontSize: '0.7rem',
+                                                        background: advice.type === 'maintain' ? '#c8e6c9' : (advice.type === 'decrease' ? '#ffcdd2' : '#bbdefb'),
+                                                        color: advice.type === 'maintain' ? '#2e7d32' : (advice.type === 'decrease' ? '#c62828' : '#1565c0'),
+                                                        padding: '2px 6px',
+                                                        borderRadius: '10px',
+                                                        fontWeight: 'bold',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '2px'
+                                                    }}>
+                                                        <WeightAdviceIcon advice={advice.type} />
+                                                        {advice.type === 'decrease' ? '↓' : advice.type === 'increase' ? '↑' : '='}
+                                                    </span>
+                                                )}
                                             </div>
 
-                                            {/* Advice Badge */}
-                                            {advice && (
-                                                <div style={{
-                                                    textAlign: 'center', fontSize: '0.9rem',
-                                                    background: advice.type === 'maintain' ? '#e8f5e9' : (advice.type === 'decrease' ? '#ffebee' : '#e3f2fd'),
-                                                    color: advice.type === 'maintain' ? '#2e7d32' : (advice.type === 'decrease' ? '#c62828' : '#1565c0'),
-                                                    padding: '2px', borderRadius: '8px', fontWeight: 'bold',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2px',
-                                                    whiteSpace: 'nowrap'
-                                                }}>
-                                                    <WeightAdviceIcon advice={advice.type} />
-                                                    <span>{advice.text}</span>
-                                                </div>
-                                            )}
-
-                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                                <label style={{ fontSize: '0.8rem', marginBottom: '2px' }}>Carga (kg)</label>
-                                                <NumberInput
-                                                    value={inputValues[ex.id]?.weight || ''}
-                                                    onChange={(v) => handleInputSave(ex.id, 'weight', v)}
-                                                    placeholder="0"
-                                                    compact={true}
-                                                />
-                                            </div>
-
-                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                                <label style={{ fontSize: '0.8rem', marginBottom: '2px' }}>
-                                                    {ex.isIsometric ? 'Tempo (s)' : (ex.isUnilateral ? 'Reps (Esq)' : 'Reps')}
-                                                </label>
-                                                <NumberInput
-                                                    value={ex.isUnilateral ? (inputValues[ex.id]?.repsLeft || '') : (inputValues[ex.id]?.reps || '')}
-                                                    onChange={(v) => handleInputSave(ex.id, ex.isUnilateral ? 'repsLeft' : 'reps', v)}
-                                                    placeholder="0"
-                                                    compact={true}
-                                                />
-                                            </div>
-
-                                            {ex.isUnilateral && (
-                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                                    <label style={{ fontSize: '0.8rem', marginBottom: '2px' }}>
-                                                        Reps (Dir)
-                                                    </label>
+                                            {/* Inputs: Weight + Reps side by side */}
+                                            {ex.isUnilateral ? (
+                                                <>
+                                                    {/* Unilateral: Weight row */}
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
+                                                        <span style={{ fontSize: '0.75rem', color: '#555', width: '20px' }}>kg</span>
+                                                        <NumberInput
+                                                            value={inputValues[ex.id]?.weight || ''}
+                                                            onChange={(v) => handleInputSave(ex.id, 'weight', v)}
+                                                            placeholder="0"
+                                                            compact={true}
+                                                        />
+                                                    </div>
+                                                    {/* Unilateral: Reps E + D row */}
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                        <span style={{ fontSize: '0.75rem', color: '#555', width: '20px' }}>E</span>
+                                                        <NumberInput
+                                                            value={inputValues[ex.id]?.repsLeft || ''}
+                                                            onChange={(v) => handleInputSave(ex.id, 'repsLeft', v)}
+                                                            placeholder="0"
+                                                            compact={true}
+                                                        />
+                                                        <span style={{ fontSize: '0.75rem', color: '#555', marginLeft: '4px' }}>D</span>
+                                                        <NumberInput
+                                                            value={inputValues[ex.id]?.repsRight || ''}
+                                                            onChange={(v) => handleInputSave(ex.id, 'repsRight', v)}
+                                                            placeholder="0"
+                                                            compact={true}
+                                                        />
+                                                        <button
+                                                            onClick={() => setStartSide(state.nextStartSide === 'LEFT' ? 'RIGHT' : 'LEFT')}
+                                                            style={{
+                                                                fontSize: '0.7em',
+                                                                padding: '4px 6px',
+                                                                background: '#444',
+                                                                color: 'white',
+                                                                border: 'none',
+                                                                borderRadius: '4px',
+                                                                cursor: 'pointer',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: '3px',
+                                                                marginLeft: '2px'
+                                                            }}
+                                                        >
+                                                            <ArrowLeftRight size={10} />
+                                                            {state.nextStartSide === 'LEFT' ? 'E' : 'D'}
+                                                        </button>
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                /* Standard: Weight + Reps in one row */
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>
+                                                    <span style={{ fontSize: '0.75rem', color: '#555' }}>kg</span>
                                                     <NumberInput
-                                                        value={inputValues[ex.id]?.repsRight || ''}
-                                                        onChange={(v) => handleInputSave(ex.id, 'repsRight', v)}
+                                                        value={inputValues[ex.id]?.weight || ''}
+                                                        onChange={(v) => handleInputSave(ex.id, 'weight', v)}
+                                                        placeholder="0"
+                                                        compact={true}
+                                                    />
+                                                    <span style={{ fontSize: '0.75rem', color: '#555', marginLeft: '6px' }}>
+                                                        {ex.isIsometric ? 'seg' : 'reps'}
+                                                    </span>
+                                                    <NumberInput
+                                                        value={inputValues[ex.id]?.reps || ''}
+                                                        onChange={(v) => handleInputSave(ex.id, 'reps', v)}
                                                         placeholder="0"
                                                         compact={true}
                                                     />
                                                 </div>
                                             )}
-
-                                            {/* Unilateral Invert Toggle */}
-                                            {ex.isUnilateral && (
-                                                <button
-                                                    onClick={() => setStartSide(state.nextStartSide === 'LEFT' ? 'RIGHT' : 'LEFT')}
-                                                    style={{
-                                                        marginTop: '6px',
-                                                        fontSize: '0.7em',
-                                                        padding: '4px 8px',
-                                                        background: '#333',
-                                                        color: 'white',
-                                                        border: '1px solid #555',
-                                                        borderRadius: '4px',
-                                                        cursor: 'pointer',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: '6px'
-                                                    }}
-                                                >
-                                                    <ArrowLeftRight size={12} />
-                                                    <span>Próx: {state.nextStartSide === 'LEFT' ? 'Esq' : 'Dir'}</span>
-                                                </button>
-                                            )}
                                         </div>
                                     );
                                 })}
                             </div>
+
+                            {/* Next Set Info - Single Line */}
+                            <div style={{
+                                fontSize: '0.8rem',
+                                marginTop: '4px',
+                                opacity: 0.9,
+                                background: 'rgba(0,0,0,0.12)',
+                                padding: '5px 10px',
+                                borderRadius: '6px',
+                                textAlign: 'center',
+                                maxWidth: '100%'
+                            }}>
+                                {state.phase === PHASE.REST_EXERCISE ? (
+                                    (() => {
+                                        const nextExercise = workout.exercises[state.exerciseIndex + 1];
+                                        if (!nextExercise) return null;
+
+                                        if (nextExercise.biSetId) {
+                                            const groupExercises = workout.exercises.filter(ex => ex.biSetId === nextExercise.biSetId);
+                                            return (
+                                                <span>
+                                                    <b>Próximo Set:</b> {groupExercises.map(ex => ex.name).join(' → ')}
+                                                </span>
+                                            );
+                                        }
+                                        return <span><b>Próximo Exercício:</b> {nextExercise.name}</span>;
+                                    })()
+                                ) : (
+                                    currentExercise.biSetId ? (
+                                        <span>
+                                            <b>Próxima Série:</b> Série {state.setNumber} — {activeInputExercises.map(ex => ex.name).join(' → ')}
+                                        </span>
+                                    ) : (
+                                        <span><b>Próxima Série:</b> Série {state.setNumber}</span>
+                                    )
+                                )}
+                            </div>
                         </div>
                     )}
 
-                    <div style={{ fontSize: '1.5rem', fontWeight: 700, opacity: 0.8, marginTop: '10px' }}>
-                        {getPhaseName()}
-                    </div>
-
-
-
-                    {/* Rest Next Info */}
-                    {isResting && (
-                        <div style={{ fontSize: '1.2rem', marginTop: '10px' }}>
-                            Próximo: {state.phase === PHASE.REST_EXERCISE ?
-                                workout.exercises[state.exerciseIndex + 1]?.name :
-                                `Série ${state.setNumber}`}
+                    {/* Phase Name - Only show when NOT resting (resting has it inline above) */}
+                    {!isResting && (
+                        <div style={{ fontSize: '1.5rem', fontWeight: 700, opacity: 0.8, marginTop: '10px' }}>
+                            {getPhaseName()}
                         </div>
                     )}
 

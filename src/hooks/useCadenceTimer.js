@@ -308,7 +308,7 @@ function transitionPhase(state) {
             // Isometric Flow: PREP -> ISOMETRIC_WORK -> REST
             // Duration is target reps (interpreted as seconds)
             // But if failure mode is on, we might set duration to infinity or large number
-            const targetDuration = currentExercise.reps; // Reps field holds seconds
+            const targetDuration = currentExercise.repsMax || currentExercise.reps; // Use repsMax as target (reps as fallback)
 
             return {
                 ...state,

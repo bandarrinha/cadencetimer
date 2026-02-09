@@ -24,13 +24,14 @@ export default function NumberInput({ value, onChange, min = 0, max = 999, step 
         onChange(next);
     };
 
-    const btnSize = compact ? '32px' : '48px';
-    const iconSize = compact ? 16 : 24;
-    const inputWidth = compact ? '60px' : '100px';
-    const fontSize = compact ? '1.2rem' : '2rem';
+    const btnSize = compact ? '28px' : '48px';
+    const iconSize = compact ? 14 : 24;
+    const inputWidth = compact ? '48px' : '100px';
+    const fontSize = compact ? '1.1rem' : '2rem';
+    const gap = compact ? '4px' : '8px';
 
     return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', ...style }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap, ...style }}>
             <button
                 onClick={decrement}
                 style={{
