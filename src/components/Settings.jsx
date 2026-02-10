@@ -1,9 +1,11 @@
 import { useRef, useState, useEffect } from 'react';
-import { Download, Upload, ArrowLeft, Sun } from 'lucide-react';
+import { Download, Upload, ArrowLeft, Sun, X, FileText, Archive } from 'lucide-react';
 
 export default function Settings({ onBack }) {
     const fileInputRef = useRef(null);
     const [keepAwake, setKeepAwake] = useState(true);
+    const [showExportModal, setShowExportModal] = useState(false);
+    const [importModalData, setImportModalData] = useState(null); // null = hidden, object = parsed JSON with history
 
     useEffect(() => {
         const settings = JSON.parse(localStorage.getItem('cadence_settings') || '{}');
@@ -20,19 +22,53 @@ export default function Settings({ onBack }) {
         localStorage.setItem('cadence_settings', JSON.stringify(settings));
     };
 
-    // Import/Export Logic
-    const exportData = () => {
+    // --- Export Logic ---
+    const exportData = (mode) => {
         const data = {
+            backupType: mode,
             workouts: JSON.parse(localStorage.getItem('cadence_workouts')),
-            history: JSON.parse(localStorage.getItem('cadence_history')),
             settings: JSON.parse(localStorage.getItem('cadence_settings') || '{}')
         };
+
+        if (mode === 'full') {
+            data.history = JSON.parse(localStorage.getItem('cadence_history'));
+        }
+
+        const prefix = mode === 'config' ? 'cadence_config' : 'cadence_backup';
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `cadence_backup_${new Date().toISOString().slice(0, 10)}.json`;
+        a.download = `${prefix}_${new Date().toISOString().slice(0, 10)}.json`;
         a.click();
+        URL.revokeObjectURL(url);
+        setShowExportModal(false);
+    };
+
+    // --- Import Logic ---
+    const applyImport = (data, includeHistory) => {
+        if (data.workouts) {
+            data.workouts.forEach(w => {
+                if (w.exercises) {
+                    w.exercises.forEach(ex => {
+                        if (ex.biSetId === undefined) ex.biSetId = null;
+                        if (ex.prepTime === undefined) ex.prepTime = 5;
+                    });
+                }
+            });
+            localStorage.setItem('cadence_workouts', JSON.stringify(data.workouts));
+        }
+
+        if (data.settings) {
+            localStorage.setItem('cadence_settings', JSON.stringify(data.settings));
+        }
+
+        if (includeHistory && data.history) {
+            localStorage.setItem('cadence_history', JSON.stringify(data.history));
+        }
+
+        alert('Dados importados com sucesso! A página será recarregada.');
+        window.location.reload();
     };
 
     const handleImport = (e) => {
@@ -43,44 +79,45 @@ export default function Settings({ onBack }) {
             try {
                 const data = JSON.parse(ev.target.result);
 
-                // Validation: Check if it looks like a valid backup
                 if (!data.workouts && !data.history) {
                     throw new Error("Arquivo inválido. O JSON não contém dados de treinos ou histórico.");
                 }
 
-                if (data.workouts) {
-                    // Ensure biSetId and prepTime presence for compatibility
-                    data.workouts.forEach(w => {
-                        if (w.exercises) {
-                            w.exercises.forEach(ex => {
-                                if (ex.biSetId === undefined) ex.biSetId = null;
-                                if (ex.prepTime === undefined) ex.prepTime = 5;
-                            });
-                        }
-                    });
-                    localStorage.setItem('cadence_workouts', JSON.stringify(data.workouts));
+                // If backup has history, let user choose what to import
+                const hasHistory = !!(data.history && data.history.length > 0);
+                if (hasHistory) {
+                    setImportModalData(data);
+                } else {
+                    // Config-only backup: import directly
+                    applyImport(data, false);
                 }
-
-                if (data.history) {
-                    localStorage.setItem('cadence_history', JSON.stringify(data.history));
-                }
-
-                if (data.settings) {
-                    localStorage.setItem('cadence_settings', JSON.stringify(data.settings));
-                }
-
-                alert('Dados importados com sucesso! A página será recarregada.');
-                window.location.reload();
             } catch (err) {
                 alert('Erro ao importar arquivo: ' + err.message);
             } finally {
-                // Reset input to allow re-selecting the same file if needed
                 if (fileInputRef.current) {
                     fileInputRef.current.value = '';
                 }
             }
         };
         reader.readAsText(file);
+    };
+
+    // --- Shared Modal Styles ---
+    const overlayStyle = {
+        position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.85)',
+        display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
+        zIndex: 1000, padding: '20px'
+    };
+
+    const cardStyle = {
+        width: '100%', maxWidth: '340px', padding: '18px', background: '#2a2a2a',
+        borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '14px',
+        cursor: 'pointer', border: '1px solid #444', transition: 'border-color 0.2s, background 0.2s'
+    };
+
+    const cancelBtnStyle = {
+        marginTop: '8px', padding: '12px 32px', background: 'transparent',
+        color: '#888', border: '1px solid #555', borderRadius: '8px', fontSize: '0.95em'
     };
 
     return (
@@ -122,10 +159,10 @@ export default function Settings({ onBack }) {
 
             <div style={{ background: '#1e1e1e', padding: '24px', borderRadius: '12px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 <h3 style={{ margin: 0, color: 'white', fontSize: '1.2em' }}>Dados e Backup</h3>
-                <p style={{ color: '#888', fontSize: '0.9em', margin: 0 }}>Exporte seus dados para manter um backup seguro ou import para restaurar configurações anteriores.</p>
+                <p style={{ color: '#888', fontSize: '0.9em', margin: 0 }}>Exporte seus dados para manter um backup seguro ou importe para restaurar configurações anteriores.</p>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <button onClick={exportData} style={{ padding: '16px', background: '#333', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', fontSize: '1em' }}>
+                    <button onClick={() => setShowExportModal(true)} style={{ padding: '16px', background: '#333', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', fontSize: '1em' }}>
                         <Download /> Fazer Backup (Exportar)
                     </button>
 
@@ -141,6 +178,87 @@ export default function Settings({ onBack }) {
                     />
                 </div>
             </div>
+
+            {/* Export Modal */}
+            {showExportModal && (
+                <div style={overlayStyle}>
+                    <h3 style={{ color: 'white', marginBottom: '20px', fontSize: '1.2em' }}>O que deseja exportar?</h3>
+
+                    <button
+                        onClick={() => exportData('config')}
+                        style={cardStyle}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--color-primary)'; e.currentTarget.style.background = '#333'; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = '#444'; e.currentTarget.style.background = '#2a2a2a'; }}
+                    >
+                        <FileText size={28} color="var(--color-primary)" />
+                        <div>
+                            <div style={{ color: 'white', fontWeight: 'bold', marginBottom: '4px' }}>Somente Treinos</div>
+                            <div style={{ color: '#999', fontSize: '0.85em' }}>Configuração dos treinos e preferências</div>
+                        </div>
+                    </button>
+
+                    <div style={{ height: '12px' }} />
+
+                    <button
+                        onClick={() => exportData('full')}
+                        style={cardStyle}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--color-primary)'; e.currentTarget.style.background = '#333'; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = '#444'; e.currentTarget.style.background = '#2a2a2a'; }}
+                    >
+                        <Archive size={28} color="#ff9800" />
+                        <div>
+                            <div style={{ color: 'white', fontWeight: 'bold', marginBottom: '4px' }}>Backup Completo</div>
+                            <div style={{ color: '#999', fontSize: '0.85em' }}>Inclui também todo o histórico de execução</div>
+                        </div>
+                    </button>
+
+                    <button onClick={() => setShowExportModal(false)} style={cancelBtnStyle}>
+                        Cancelar
+                    </button>
+                </div>
+            )}
+
+            {/* Import Modal (shown when importing a backup that contains history) */}
+            {importModalData && (
+                <div style={overlayStyle}>
+                    <h3 style={{ color: 'white', marginBottom: '8px', fontSize: '1.2em' }}>Backup completo detectado</h3>
+                    <p style={{ color: '#999', marginBottom: '20px', textAlign: 'center', maxWidth: '340px', fontSize: '0.9em' }}>
+                        Este arquivo contém configuração de treinos e histórico. O que deseja importar?
+                    </p>
+
+                    <button
+                        onClick={() => { applyImport(importModalData, false); setImportModalData(null); }}
+                        style={cardStyle}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--color-primary)'; e.currentTarget.style.background = '#333'; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = '#444'; e.currentTarget.style.background = '#2a2a2a'; }}
+                    >
+                        <FileText size={28} color="var(--color-primary)" />
+                        <div>
+                            <div style={{ color: 'white', fontWeight: 'bold', marginBottom: '4px' }}>Somente Treinos</div>
+                            <div style={{ color: '#999', fontSize: '0.85em' }}>Importa apenas a configuração dos treinos</div>
+                        </div>
+                    </button>
+
+                    <div style={{ height: '12px' }} />
+
+                    <button
+                        onClick={() => { applyImport(importModalData, true); setImportModalData(null); }}
+                        style={cardStyle}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--color-primary)'; e.currentTarget.style.background = '#333'; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = '#444'; e.currentTarget.style.background = '#2a2a2a'; }}
+                    >
+                        <Archive size={28} color="#ff9800" />
+                        <div>
+                            <div style={{ color: 'white', fontWeight: 'bold', marginBottom: '4px' }}>Tudo</div>
+                            <div style={{ color: '#999', fontSize: '0.85em' }}>Importa configuração + histórico completo</div>
+                        </div>
+                    </button>
+
+                    <button onClick={() => setImportModalData(null)} style={cancelBtnStyle}>
+                        Cancelar
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
