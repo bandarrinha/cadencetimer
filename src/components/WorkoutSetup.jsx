@@ -72,6 +72,27 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
         updateActiveWorkout({ ...activeWorkout, exercises: newExercises });
     };
 
+    // Restore default value on blur if field is empty
+    const NUMERIC_DEFAULTS = {
+        sets: 3, reps: 10, repsMin: 8, repsMax: 12,
+        restSet: 45, restExercise: 60, prepTime: 5, unilateralTransition: 5
+    };
+
+    const handleNumericBlur = (index, field) => {
+        const ex = activeWorkout.exercises[index];
+        const val = ex[field];
+        if (val === '' || val === null || val === undefined || (typeof val === 'number' && isNaN(val))) {
+            updateExercise(index, field, NUMERIC_DEFAULTS[field] ?? 0);
+        }
+    };
+
+    const handleCadenceBlur = (index, field) => {
+        const val = activeWorkout.exercises[index].cadence[field];
+        if (val === '' || val === null || val === undefined || (typeof val === 'number' && isNaN(val))) {
+            updateCadence(index, field, DEFAULT_EXERCISE.cadence[field] ?? 0);
+        }
+    };
+
     const updateCadence = (index, field, value) => {
         const newExercises = [...activeWorkout.exercises];
         newExercises[index].cadence[field] = value === '' ? '' : (parseInt(value) || 0);
@@ -332,8 +353,9 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                                     <label style={{ fontSize: '0.9em', color: '#ccc', marginBottom: '6px' }}>Séries</label>
                                     <input
                                         type="number"
-                                        value={ex.sets}
+                                        value={ex.sets === '' ? '' : ex.sets}
                                         onChange={(e) => updateExercise(idx, 'sets', e.target.value === '' ? '' : parseInt(e.target.value))}
+                                        onBlur={() => handleNumericBlur(idx, 'sets')}
                                         style={inputStyle}
                                     />
                                 </div>
@@ -347,8 +369,9 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                                             </label>
                                             <input
                                                 type="number"
-                                                value={ex.repsMin || ex.reps} // Fallback to reps if min undefined
+                                                value={ex.repsMin != null ? ex.repsMin : ex.reps}
                                                 onChange={(e) => updateExercise(idx, 'repsMin', e.target.value === '' ? '' : parseInt(e.target.value))}
+                                                onBlur={() => handleNumericBlur(idx, 'repsMin')}
                                                 style={inputStyle}
                                             />
                                         </div>
@@ -358,8 +381,9 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                                             </label>
                                             <input
                                                 type="number"
-                                                value={ex.repsMax || ex.reps} // Fallback to reps if max undefined
+                                                value={ex.repsMax != null ? ex.repsMax : ex.reps}
                                                 onChange={(e) => updateExercise(idx, 'repsMax', e.target.value === '' ? '' : parseInt(e.target.value))}
+                                                onBlur={() => handleNumericBlur(idx, 'repsMax')}
                                                 style={inputStyle}
                                             />
                                         </div>
@@ -371,8 +395,9 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                                         </label>
                                         <input
                                             type="number"
-                                            value={ex.reps}
+                                            value={ex.reps === '' ? '' : ex.reps}
                                             onChange={(e) => updateExercise(idx, 'reps', e.target.value === '' ? '' : parseInt(e.target.value))}
+                                            onBlur={() => handleNumericBlur(idx, 'reps')}
                                             style={inputStyle}
                                         />
                                     </div>
@@ -405,8 +430,9 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                                                 </label>
                                                 <input
                                                     type="number"
-                                                    value={ex.cadence[key]}
+                                                    value={ex.cadence[key] === '' ? '' : ex.cadence[key]}
                                                     onChange={(e) => updateCadence(idx, key, e.target.value)}
+                                                    onBlur={() => handleCadenceBlur(idx, key)}
                                                     style={inputStyle}
                                                 />
                                             </div>
@@ -419,16 +445,16 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
                                 <label style={{ fontSize: '0.9em', color: '#ccc' }}>
                                     Preparo
-                                    <input type="number" value={ex.prepTime} onChange={(e) => updateExercise(idx, 'prepTime', e.target.value === '' ? '' : parseInt(e.target.value))} style={inputStyle} />
+                                    <input type="number" value={ex.prepTime === '' ? '' : ex.prepTime} onChange={(e) => updateExercise(idx, 'prepTime', e.target.value === '' ? '' : parseInt(e.target.value))} onBlur={() => handleNumericBlur(idx, 'prepTime')} style={inputStyle} />
                                 </label>
                                 <label style={{ fontSize: '0.9em', color: '#ccc' }}>
                                     {isLinkedWithNext || isLinkedWithPrev ? 'Entre Séries (Bi-Set)' : 'Entre Séries'}
-                                    <input type="number" value={ex.restSet} onChange={(e) => updateExercise(idx, 'restSet', e.target.value === '' ? '' : parseInt(e.target.value))} style={inputStyle} />
+                                    <input type="number" value={ex.restSet === '' ? '' : ex.restSet} onChange={(e) => updateExercise(idx, 'restSet', e.target.value === '' ? '' : parseInt(e.target.value))} onBlur={() => handleNumericBlur(idx, 'restSet')} style={inputStyle} />
                                 </label>
                                 {!isLinkedWithNext && (
                                     <label style={{ fontSize: '0.9em', color: '#ccc' }}>
                                         {isLinkedWithNext ? 'Transição (Prep)' : (isLinkedWithPrev ? 'Descanso Final' : 'Entre Exercícios')}
-                                        <input type="number" value={ex.restExercise} onChange={(e) => updateExercise(idx, 'restExercise', e.target.value === '' ? '' : parseInt(e.target.value))} style={inputStyle} />
+                                        <input type="number" value={ex.restExercise === '' ? '' : ex.restExercise} onChange={(e) => updateExercise(idx, 'restExercise', e.target.value === '' ? '' : parseInt(e.target.value))} onBlur={() => handleNumericBlur(idx, 'restExercise')} style={inputStyle} />
                                     </label>
                                 )}
                             </div>
@@ -447,8 +473,9 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                                                 Transição entre Lados (s):
                                                 <input
                                                     type="number"
-                                                    value={ex.unilateralTransition === undefined ? 5 : ex.unilateralTransition}
+                                                    value={ex.unilateralTransition == null ? 5 : (ex.unilateralTransition === '' ? '' : ex.unilateralTransition)}
                                                     onChange={(e) => updateExercise(idx, 'unilateralTransition', e.target.value === '' ? '' : parseInt(e.target.value))}
+                                                    onBlur={() => handleNumericBlur(idx, 'unilateralTransition')}
                                                     style={{ ...inputStyle, width: '60px', marginTop: 0 }}
                                                 />
                                             </label>
