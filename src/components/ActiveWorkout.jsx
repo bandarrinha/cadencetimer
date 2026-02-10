@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useCadenceTimer, PHASE } from '../hooks/useCadenceTimer';
 import { useTTS } from '../hooks/useTTS';
 import { useWakeLock } from '../hooks/useWakeLock';
-import { Pause, Play, SkipForward, X, AlertTriangle, ArrowLeftRight } from 'lucide-react';
+import { Pause, Play, SkipForward, X, AlertTriangle, ArrowLeftRight, Timer } from 'lucide-react';
 import NumberInput from './common/NumberInput';
 import WorkoutSummary from './WorkoutSummary';
 import WeightAdviceIcon from './common/WeightAdviceIcon';
@@ -431,7 +431,8 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
 
                 {/* Global Timer */}
                 {state.startTime && (
-                    <div style={{ fontSize: '1em', opacity: 0.8, fontWeight: 'bold' }}>
+                    <div style={{ fontSize: '1em', opacity: 0.8, fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Timer size={14} />
                         {(() => {
                             const diff = Math.floor(state.totalWorkoutTime || 0);
                             const m = Math.floor(diff / 60).toString().padStart(2, '0');
@@ -466,14 +467,22 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                     {/* MODIFIED: PREP Phase is now INCLUDED here */}
                     {(!isResting && state.phase !== PHASE.FINISHED) && (
                         <div style={{
-                            fontSize: '10rem', fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums',
+                            fontSize: state.phase === PHASE.ISOMETRIC_WORK ? '7rem' : '10rem',
+                            fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums',
                             transition: 'all 0.3s ease',
                             marginBottom: '0px'
                         }}>
-                            {currentExercise.isIsometric && currentExercise.failureMode && state.timeLeft <= 0
-                                ? '+' + Math.abs(Math.floor(state.timeLeft)) // Overtime Display
-                                : Math.ceil(state.timeLeft)
-                            }
+                            {(() => {
+                                if (state.phase === PHASE.ISOMETRIC_WORK) {
+                                    if (currentExercise.failureMode && state.timeLeft <= 0) {
+                                        const t = Math.abs(Math.floor(state.timeLeft));
+                                        return '+' + Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0');
+                                    }
+                                    const t = Math.ceil(state.timeLeft);
+                                    return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0');
+                                }
+                                return String(Math.ceil(state.timeLeft)).padStart(2, '0');
+                            })()}
                         </div>
                     )}
 
@@ -492,7 +501,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                                 ...feedbackStyle // Highlight applied here
                             }}>
                                 {currentExercise.isIsometric
-                                    ? Math.floor(state.isometricTime) + 's'
+                                    ? (() => { const t = Math.floor(state.isometricTime); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); })()
                                     : (
                                         <span>
                                             Rep {state.actualReps + 1}
@@ -539,7 +548,10 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                         }}>
                             {/* Timer */}
                             <div style={{ fontSize: '5rem', fontWeight: 900, lineHeight: 1 }}>
-                                {Math.ceil(state.timeLeft)}
+                                {(() => {
+                                    const t = Math.ceil(state.timeLeft);
+                                    return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0');
+                                })()}
                             </div>
 
                             {/* Phase Label */}
@@ -669,7 +681,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
 
                             {/* Next Set Info - Single Line */}
                             <div style={{
-                                fontSize: '0.8rem',
+                                fontSize: '1rem',
                                 marginTop: '4px',
                                 opacity: 0.9,
                                 background: 'rgba(0,0,0,0.12)',
