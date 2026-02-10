@@ -479,11 +479,11 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                                         onClick={() => toggleBiSet(idx)}
                                         style={{
                                             background: isLinkedWithNext ? '#ff9800' : '#333',
-                                            color: isLinkedWithNext ? 'black' : '#888',
+                                            color: isLinkedWithNext ? '#fff' : '#888',
                                             border: 'none',
                                             borderRadius: '50%',
-                                            width: '32px',
-                                            height: '32px',
+                                            width: '36px',
+                                            height: '36px',
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
@@ -492,7 +492,7 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                                         }}
                                         title={isLinkedWithNext ? "Desfazer Bi-Set" : "Criar Bi-Set"}
                                     >
-                                        {isLinkedWithNext ? <Unlink size={16} /> : <Link size={16} />}
+                                        {isLinkedWithNext ? <span style={{ fontSize: '18px', lineHeight: 1 }}>⛓️‍💥</span> : <span style={{ fontSize: '18px', lineHeight: 1 }}>🔗</span>}
                                     </button>
                                 </div>
                             )
