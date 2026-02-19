@@ -79,74 +79,97 @@ export default function WorkoutPreview({ workout, onStart, onBack }) {
                     Confira as cargas.
                 </p>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {workout.exercises.map(ex => {
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0px' }}>
+                    {workout.exercises.map((ex, idx) => {
                         const advice = getAdvice(ex);
+                        const isLinkedWithNext = idx < workout.exercises.length - 1 && ex.biSetId && ex.biSetId === workout.exercises[idx + 1].biSetId;
+                        const isLinkedWithPrev = idx > 0 && ex.biSetId && ex.biSetId === workout.exercises[idx - 1].biSetId;
+                        const isGrouped = isLinkedWithNext || isLinkedWithPrev;
+
+                        // Group label for first item
+                        const isGroupStart = isLinkedWithNext && !isLinkedWithPrev;
+                        let groupLabel = null;
+                        if (isGroupStart) {
+                            const groupSize = workout.exercises.filter(e => e.biSetId === ex.biSetId).length;
+                            groupLabel = groupSize === 2 ? 'BI-SET' : groupSize === 3 ? 'TRI-SET' : 'GIANT SET';
+                        }
 
                         return (
-                            <div key={ex.id} style={{
-                                background: '#1e1e1e',
-                                padding: '10px', // Compact padding
-                                borderRadius: '12px',
-                                display: 'grid', // Use Grid for better control
-                                gridTemplateColumns: 'minmax(0, 1fr) auto', // Text takes available space, Input takes needed space
-                                alignItems: 'center',
-                                gap: '8px'
-                            }}>
-                                {/* Text Column */}
-                                <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                                    <div style={{
-                                        fontWeight: 'bold',
-                                        fontSize: '0.95em',
-                                        marginBottom: '4px',
-                                        whiteSpace: 'nowrap',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        textAlign: 'left' // Explicit left align
-                                    }}>
-                                        {ex.name}
+                            <div key={ex.id} style={{ position: 'relative', marginBottom: isLinkedWithNext ? '0' : '10px' }}>
+                                {/* Group Label Badge */}
+                                {groupLabel && (
+                                    <div style={{ position: 'absolute', top: '-10px', right: '10px', background: '#ff9800', color: 'black', fontSize: '0.7em', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold', zIndex: 1 }}>
+                                        {groupLabel}
                                     </div>
+                                )}
+                                <div style={{
+                                    background: '#1e1e1e',
+                                    padding: '10px',
+                                    borderRadius: '12px',
+                                    borderBottomLeftRadius: isLinkedWithNext ? '0' : '12px',
+                                    borderBottomRightRadius: isLinkedWithNext ? '0' : '12px',
+                                    borderTopLeftRadius: isLinkedWithPrev ? '0' : '12px',
+                                    borderTopRightRadius: isLinkedWithPrev ? '0' : '12px',
+                                    borderLeft: isGrouped ? '4px solid #ff9800' : 'none',
+                                    display: 'grid',
+                                    gridTemplateColumns: 'minmax(0, 1fr) auto',
+                                    alignItems: 'center',
+                                    gap: '8px'
+                                }}>
+                                    {/* Text Column */}
+                                    <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                                        <div style={{
+                                            fontWeight: 'bold',
+                                            fontSize: '0.95em',
+                                            marginBottom: '4px',
+                                            whiteSpace: 'nowrap',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            textAlign: 'left'
+                                        }}>
+                                            {ex.name}
+                                        </div>
 
-                                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
-                                        <span style={{ color: '#888', fontSize: '0.85em' }}>
-                                            {ex.sets} x {ex.reps}
-                                        </span>
+                                        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                                            <span style={{ color: '#888', fontSize: '0.85em' }}>
+                                                {ex.sets} x {ex.reps}
+                                            </span>
 
-                                        {advice && (
-                                            <div style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '3px',
-                                                background: 'rgba(255,255,255,0.08)',
-                                                padding: '2px 6px',
-                                                borderRadius: '4px'
-                                            }}>
-                                                <WeightAdviceIcon advice={advice} />
-                                                <span style={{
-                                                    fontSize: '0.75em',
-                                                    fontWeight: 600,
-                                                    color: advice === 'increase' ? '#60a5fa' : (advice === 'decrease' ? '#f87171' : '#4ade80')
+                                            {advice && (
+                                                <div style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '3px',
+                                                    background: 'rgba(255,255,255,0.08)',
+                                                    padding: '2px 6px',
+                                                    borderRadius: '4px'
                                                 }}>
-                                                    {advice === 'increase' ? 'Subir' : (advice === 'decrease' ? 'Descer' : 'Manter')}
-                                                </span>
-                                            </div>
-                                        )}
+                                                    <WeightAdviceIcon advice={advice} />
+                                                    <span style={{
+                                                        fontSize: '0.75em',
+                                                        fontWeight: 600,
+                                                        color: advice === 'increase' ? '#60a5fa' : (advice === 'decrease' ? '#f87171' : '#4ade80')
+                                                    }}>
+                                                        {advice === 'increase' ? 'Subir' : (advice === 'decrease' ? 'Descer' : 'Manter')}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
 
-                                {/* Input Column */}
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                    <label style={{ fontSize: '0.7em', color: '#aaa', marginBottom: '2px' }}>
-                                        kg
-                                    </label>
-                                    <NumberInput
-                                        value={adjustedWeights[ex.id] !== undefined ? adjustedWeights[ex.id] : ''}
-                                        onChange={(v) => handleWeightChange(ex.id, v)}
-                                        placeholder="0"
-                                        compact={true}
-                                        // Pass style to override width/size details if necessary inside NumberInput
-                                        style={{ transform: 'scale(0.85)', transformOrigin: 'center center' }}
-                                    />
+                                    {/* Input Column */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                        <label style={{ fontSize: '0.7em', color: '#aaa', marginBottom: '2px' }}>
+                                            kg
+                                        </label>
+                                        <NumberInput
+                                            value={adjustedWeights[ex.id] !== undefined ? adjustedWeights[ex.id] : ''}
+                                            onChange={(v) => handleWeightChange(ex.id, v)}
+                                            placeholder="0"
+                                            compact={true}
+                                            style={{ transform: 'scale(0.85)', transformOrigin: 'center center' }}
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         );

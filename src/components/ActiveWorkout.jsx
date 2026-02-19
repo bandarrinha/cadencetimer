@@ -690,8 +690,30 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                                 textAlign: 'center',
                                 maxWidth: '100%'
                             }}>
-                                {state.phase === PHASE.REST_EXERCISE ? (
-                                    (() => {
+                                {(() => {
+                                    // Helper to get formatted weight string
+                                    const getNextWeight = (targetExId) => {
+                                        // 1. Initial Weights (Set in Preview)
+                                        if (initialWeights && initialWeights[targetExId]) return `${initialWeights[targetExId]}kg`;
+
+                                        // 2. Last used in CURRENT workout
+                                        const lastInSession = state.weightData.filter(w => w.exerciseId === targetExId).pop();
+                                        if (lastInSession && lastInSession.weight) return `${lastInSession.weight}kg`;
+
+                                        // 3. History (LocalStorage)
+                                        const hist = JSON.parse(localStorage.getItem('cadence_history') || '[]');
+                                        const lastInHist = hist.slice().reverse().find(h => h.exerciseId === targetExId);
+                                        if (lastInHist && lastInHist.weight) return `${lastInHist.weight}kg`;
+
+                                        return null;
+                                    };
+
+                                    const formatExName = (ex) => {
+                                        const w = getNextWeight(ex.id);
+                                        return w ? `${ex.name} (${w})` : ex.name;
+                                    };
+
+                                    if (state.phase === PHASE.REST_EXERCISE) {
                                         const nextExercise = workout.exercises[state.exerciseIndex + 1];
                                         if (!nextExercise) return null;
 
@@ -699,21 +721,25 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                                             const groupExercises = workout.exercises.filter(ex => ex.biSetId === nextExercise.biSetId);
                                             return (
                                                 <span>
-                                                    <b>Próximo Set:</b> {groupExercises.map(ex => ex.name).join(' → ')}
+                                                    <b>Próximo Set:</b> {groupExercises.map(formatExName).join(' → ')}
                                                 </span>
                                             );
                                         }
-                                        return <span><b>Próximo Exercício:</b> {nextExercise.name}</span>;
-                                    })()
-                                ) : (
-                                    currentExercise.biSetId ? (
-                                        <span>
-                                            <b>Próxima Série:</b> Série {state.setNumber} — {activeInputExercises.map(ex => ex.name).join(' → ')}
-                                        </span>
-                                    ) : (
-                                        <span><b>Próxima Série:</b> Série {state.setNumber}</span>
-                                    )
-                                )}
+                                        return <span><b>Próximo Exercício:</b> {formatExName(nextExercise)}</span>;
+                                    } else {
+                                        // REST_SET
+                                        if (currentExercise.biSetId) {
+                                            return (
+                                                <span>
+                                                    <b>Próxima Série:</b> Série {state.setNumber} — {activeInputExercises.map(ex => ex.name).join(' → ')}
+                                                </span>
+                                            );
+                                        } else {
+                                            // Regular Set - No weight needed (editable above)
+                                            return <span><b>Próxima Série:</b> Série {state.setNumber}</span>;
+                                        }
+                                    }
+                                })()}
                             </div>
                         </div>
                     )}

@@ -48,7 +48,7 @@ describe('timerReducer Unilateral Start Side', () => {
     test('Initializes with configured start side (Left)', () => {
         const action = { type: 'START' };
         // INIT first
-        let state = timerReducer(INITIAL_STATE, { type: 'INIT', payload: MOCK_WORKOUT });
+        let state = timerReducer(INITIAL_STATE, { type: 'INIT', payload: { workout: MOCK_WORKOUT } });
         state = timerReducer(state, action);
 
         expect(state.currentSide).toBe('LEFT');
@@ -58,7 +58,7 @@ describe('timerReducer Unilateral Start Side', () => {
     test('Initializes with configured start side (Right)', () => {
         const workoutRight = { ...MOCK_WORKOUT, exercises: [MOCK_EXERCISE_RIGHT] };
 
-        let state = timerReducer(INITIAL_STATE, { type: 'INIT', payload: workoutRight });
+        let state = timerReducer(INITIAL_STATE, { type: 'INIT', payload: { workout: workoutRight } });
         state = timerReducer(state, { type: 'START' });
 
         expect(state.currentSide).toBe('RIGHT');
@@ -67,7 +67,7 @@ describe('timerReducer Unilateral Start Side', () => {
 
     test('Transitions to Next Exercise with correct start side', () => {
         // Start with Ex Left (Index 0)
-        let state = timerReducer(INITIAL_STATE, { type: 'INIT', payload: MOCK_WORKOUT });
+        let state = timerReducer(INITIAL_STATE, { type: 'INIT', payload: { workout: MOCK_WORKOUT } });
         state = timerReducer(state, { type: 'START' });
 
         // Fast forward to finish workout
@@ -95,7 +95,7 @@ describe('timerReducer Unilateral Start Side', () => {
         const Ex2 = { ...MOCK_EXERCISE_LEFT, biSetId: 'bi-1', id: 'ex-2' };
         const workout = { exercises: [Ex1, Ex2] };
 
-        let state = timerReducer(INITIAL_STATE, { type: 'INIT', payload: workout });
+        let state = timerReducer(INITIAL_STATE, { type: 'INIT', payload: { workout } });
         state = timerReducer(state, { type: 'START' });
 
         // Verify Start
@@ -123,7 +123,7 @@ describe('timerReducer Unilateral Start Side', () => {
         const Ex2 = { ...MOCK_EXERCISE_LEFT, biSetId: 'bi-1', id: 'ex-2' };
         const workout = { exercises: [Ex1, Ex2] };
 
-        let state = timerReducer(INITIAL_STATE, { type: 'INIT', payload: workout });
+        let state = timerReducer(INITIAL_STATE, { type: 'INIT', payload: { workout } });
         state = timerReducer(state, { type: 'START' });
 
         // Advance to Ex 2
