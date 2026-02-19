@@ -1,8 +1,13 @@
 # Cadence Timer
 
-Uma aplicação web mobile-first para treinos de musculação com controle de cadência, projetada para auxiliar na execução precisa de repetições com tempos definidos para cada fase do movimento.
+Uma aplicação web mobile-first (PWA) para treinos de musculação com controle de cadência, projetada para auxiliar na execução precisa de repetições com tempos definidos para cada fase do movimento. Instalável como app no celular via manifest (`display: standalone`).
 
 ## Funcionalidades
+
+### 🏠 Tela Inicial (HOME)
+
+*   **Logo e Seletor de Treino:** Tela inicial com logo SVG, dropdown para selecionar o treino ativo (ordenado alfabeticamente).
+*   **Navegação:** Botões para INICIAR (vai para Preview), Histórico, Configuração do Treino e ícone de Configurações (engrenagem).
 
 ### 🏋️ Configuração de Treinos
 
@@ -13,7 +18,7 @@ Uma aplicação web mobile-first para treinos de musculação com controle de ca
     *   **Cadência (Segundos):** Excêntrica (Desce), Pausa em Baixo, Concêntrica (Sobe), Pausa em Cima.
     *   **Intervalos:** Tempo de Preparo, Descanso entre Séries, Descanso entre Exercícios.
     *   **Começar pela Concêntrica:** Inverte a ordem das fases (Sobe → Pausa → Desce → Pausa).
-*   **Modo Até a Falha:** Define faixa de repetições (Min–Max). O timer não para automaticamente; o usuário encerra com o botão "Falha/Acabei". Inclui feedback visual (DENTRO DA META, ACIMA DA META).
+*   **Modo Até a Falha:** Ativado por padrão em novos exercícios. Define faixa de repetições (Min–Max). O timer não para automaticamente; o usuário encerra com o botão "Falha/Acabei". Inclui feedback visual (DENTRO DA META, ACIMA DA META).
 *   **Exercícios Isométricos:** Configura o tempo alvo ao invés de repetições. Countdown e tempo acumulado exibidos no formato `M:SS`. Suporta modo falha com overtime.
 *   **Exercícios Unilaterais:** Execução por lado (Esquerdo/Direito) com transição configurável entre lados e registro de reps por lado. Possibilidade de alternar o lado inicial durante o descanso.
 *   **Reordenar Exercícios:** Botões ↑↓ para mover exercício de posição.
@@ -32,21 +37,23 @@ Uma aplicação web mobile-first para treinos de musculação com controle de ca
     *   Fases curtas (cadência/holds): formato `SS` com 2 dígitos (ex: `03`, `02`, `01`).
     *   Isometria (countdown e tempo acumulado): formato `M:SS` (ex: `0:45`, `1:30`).
     *   Descanso entre séries/exercícios: formato `M:SS` (ex: `1:00`, `1:30`).
-*   **Cronômetro Global:** Tempo total de treino com ícone ⏱️ no canto superior direito.
+*   **Cronômetro Global:** Tempo total de treino (formato `MM:SS`) com ícone de timer no canto superior direito.
 *   **Feedback por Cores:** Cada fase tem uma cor distinta (Excêntrica, Concêntrica, Isometria, Descanso, Preparar).
 *   **Beep de Contagem:** Bip sonoro nos últimos 3 segundos de cada fase longa ou de descanso.
 *   **Anúncios por Voz (TTS):** "Desce", "Sobe", "Segura", "Descansa", "Preparar", "Treino Concluído" — em português (pt-BR).
-*   **Edição durante Descanso:** Campos para ajustar carga (kg) e repetições durante o intervalo, com botões +/−.
+*   **Edição durante Descanso:** Campos para ajustar carga (kg) e repetições durante o intervalo, com botões +/−. Para exercícios unilaterais, exibe inputs separados por lado (E/D) e botão para trocar o lado inicial.
+*   **Conselho de Carga no Descanso:** Além do ícone indicador, exibe badges textuais ("Diminuir Carga", "Aumentar Carga", "Manter Carga") com cores de fundo correspondentes.
 *   **Info do Próximo Exercício/Série:** Exibido na tela de descanso.
 *   **Botão Pular:** Avança para a próxima fase a qualquer momento.
 *   **Pausar/Retomar:** Pausa e retoma o treino.
+*   **Modal de Saída:** Ao sair do treino, exibe 3 opções: "FINALIZAR E SALVAR", "SAIR SEM SALVAR" e "Cancelar".
 
 ### 📊 Conselho de Carga Inteligente
 
-*   **Ícone com Indicador:** Ícone de peso (🏋️) com sobreposição visual:
-    *   🔵 **Subir Carga** (última performance acima do máximo da faixa).
-    *   🔴 **Descer Carga** (última performance abaixo do mínimo da faixa).
-    *   🟢 **Manter Carga** (última performance dentro da faixa).
+*   **Ícone com Indicador:** Ícone de peso (Lucide `Weight`) com sobreposição visual:
+    *   🔵 **Subir Carga** — overlay `+` azul (última performance acima do máximo da faixa).
+    *   🔴 **Descer Carga** — overlay `−` vermelho (última performance abaixo do mínimo da faixa).
+    *   🟢 **Manter Carga** — overlay `✓` verde (última performance dentro da faixa).
 *   **Exibido em:** Tela de Preview (pré-treino), Descanso (durante treino), Resumo (pós-treino), Histórico.
 
 ### 📋 Preview Pré-Treino
@@ -69,7 +76,7 @@ Uma aplicação web mobile-first para treinos de musculação com controle de ca
 *   Registro detalhado de todas as sessões com data/hora.
 *   **Sessões Expansíveis:** Clique para expandir/recolher os detalhes de cada sessão.
 *   **Edição Posterior:** Modo edição inline para corrigir carga, reps ou tempo de séries passadas.
-*   Exclusão de sessões individuais e limpeza completa do histórico.
+*   Limpeza completa do histórico.
 *   Exibe conselho de carga retroativamente.
 
 ### 🔄 Recuperação de Treino
@@ -81,8 +88,12 @@ Uma aplicação web mobile-first para treinos de musculação com controle de ca
 ### ⚙️ Configurações
 
 *   **Manter Tela Ligada:** Toggle para ativar/desativar o Wake Lock (mantém a tela do celular ligada durante o treino). Ativado por padrão.
-*   **Backup (Exportar):** Exporta treinos, histórico e configurações para arquivo JSON com data no nome.
-*   **Restaurar (Importar):** Importa dados de um arquivo JSON de backup. Inclui validação e migração automática de campos ausentes (biSetId, prepTime).
+*   **Backup (Exportar):** Modal com 2 modos de exportação:
+    *   **Somente Treinos:** Exporta apenas configurações de treinos → gera `cadence_config_YYYY-MM-DD.json`.
+    *   **Backup Completo:** Exporta treinos + histórico → gera `cadence_backup_YYYY-MM-DD.json`.
+*   **Restaurar (Importar):** Importa dados de um arquivo JSON de backup.
+    *   Se o backup contém histórico, exibe modal com opções: "Somente Treinos" ou "Tudo".
+    *   Inclui validação e migração automática de campos ausentes (`biSetId`, `prepTime`). Campos adicionais (`startSide`, `repsMin`, `repsMax`) são migrados automaticamente no carregamento da tela de configuração.
 
 ## Como Usar
 
@@ -99,7 +110,7 @@ Uma aplicação web mobile-first para treinos de musculação com controle de ca
 3.  **Treino Ativo:**
     *   Siga as instruções visuais (cores) e sonoras (voz e beeps).
     *   **Countdowns:** Fases curtas exibem segundos com 2 dígitos (`03`). Fases longas usam `M:SS`.
-    *   **Timer Global:** Acompanhe a duração total (ícone ⏱️) no canto superior direito.
+    *   **Timer Global:** Acompanhe a duração total (ícone de timer) no canto superior direito.
     *   Durante o descanso, ajuste carga e reps realizadas naquela série.
     *   Exercícios isométricos registram tempo ao invés de reps.
     *   No modo falha, o botão "Falha/Acabei" encerra a série manualmente.
@@ -115,22 +126,33 @@ Projeto construído com React e Vite.
 
 ```bash
 npm install
-npm run dev
 ```
 
-Para rodar os testes:
+### Scripts Disponíveis
 
-```bash
-npm test
-```
+| Comando | Descrição |
+|---|---|
+| `npm run dev` | Servidor de desenvolvimento (Vite) |
+| `npm run build` | Build de produção |
+| `npm run preview` | Preview do build de produção |
+| `npm run lint` | Linting com ESLint |
+| `npm test` | Testes unitários com Vitest |
 
 ## Tecnologias
 
-*   React
-*   Vite
-*   Vitest (Testes Unitários)
+*   React 19
+*   Vite 7
+*   Vitest 4 (Testes Unitários)
 *   Lucide React (Ícones)
-*   Web Speech API (Text-to-Speech)
+*   Web Speech API (Text-to-Speech em pt-BR)
 *   Web Audio API (Beeps sonoros)
 *   Screen Wake Lock API (Manter tela ligada)
 *   localStorage (Persistência de dados)
+
+### PWA
+
+A aplicação possui um `manifest.json` que permite instalação como app no celular:
+
+*   `display: "standalone"` — abre sem barra do navegador.
+*   Tema escuro (`background_color: #121212`, `theme_color: #bfff00`).
+*   **Nota:** Não possui Service Worker, portanto não há suporte a uso offline.

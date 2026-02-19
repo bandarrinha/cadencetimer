@@ -136,7 +136,7 @@ export default function WorkoutSummary({ workout, weightData, onSave, onDiscard,
                                             background: '#ff9800', color: 'black', fontWeight: 'bold',
                                             padding: '2px 8px', borderRadius: '4px', fontSize: '0.8em'
                                         }}>
-                                            BI-SET
+                                            {group.length === 2 ? 'BI-SET' : group.length === 3 ? 'TRI-SET' : 'GIANT SET'}
                                         </div>
                                     )}
 
