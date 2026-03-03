@@ -18,6 +18,7 @@ Uma aplicação web mobile-first (PWA) para treinos de musculação com controle
     *   **Cadência (Segundos):** Excêntrica (Desce), Pausa em Baixo, Concêntrica (Sobe), Pausa em Cima.
     *   **Intervalos:** Tempo de Preparo, Descanso entre Séries, Descanso entre Exercícios.
     *   **Começar pela Concêntrica:** Inverte a ordem das fases (Sobe → Pausa → Desce → Pausa).
+*   **Pico de Contração:** Adição de uma pausa isométrica extra durante a fase concêntrica. Configurável por opções de posição: "Antes" (transição excêntrica-concêntrica), "Meio" (divide o tempo concêntrico na metade exata) ou "Depois" (transição concêntrica-excêntrica). Permite definir a duração da contração (ex: 3s).
 *   **Modo Até a Falha:** Ativado por padrão em novos exercícios. Define faixa de repetições (Min–Max). O timer não para automaticamente; o usuário encerra com o botão "Falha/Acabei". Inclui feedback visual (DENTRO DA META, ACIMA DA META).
 *   **Exercícios Isométricos:** Configura o tempo alvo ao invés de repetições. Countdown e tempo acumulado exibidos no formato `M:SS`. Suporta modo falha com overtime.
 *   **Exercícios Unilaterais:** Execução por lado (Esquerdo/Direito) com transição configurável entre lados e registro de reps por lado. Possibilidade de alternar o lado inicial durante o descanso.
@@ -33,10 +34,9 @@ Uma aplicação web mobile-first (PWA) para treinos de musculação com controle
 ### ⏱️ Treino Ativo
 
 *   **Timer de Cadência:** Controle visual e sonoro (TTS em pt-BR) para cada fase do movimento.
-*   **Formatos de Countdown:**
-    *   Fases curtas (cadência/holds): formato `SS` com 2 dígitos (ex: `03`, `02`, `01`).
-    *   Isometria (countdown e tempo acumulado): formato `M:SS` (ex: `0:45`, `1:30`).
-    *   Descanso entre séries/exercícios: formato `M:SS` (ex: `1:00`, `1:30`).
+*   **Formatos de Countdown UI:** O display visual emprega a fonte retrô *Digital-7 Mono* de 7-segmentos interagindo dentro de um rastreador SVG em forma de cronômetro analógico.
+    *   Fases de Esforço Ativo (cadência/picos/holds): formato `SS.d` com 1 casa decimal (ex: `03.5`, `02.0`, `01.5`).
+    *   Isometria e Descanso entre séries/exercícios: formato `M:SS` sem decimais (ex: `1:00`, `1:30`).
 *   **Cronômetro Global:** Tempo total de treino (formato `MM:SS`) com ícone de timer no canto superior direito.
 *   **Feedback por Cores:** Cada fase tem uma cor distinta (Excêntrica, Concêntrica, Isometria, Descanso, Preparar).
 *   **Beep de Contagem:** Bip sonoro nos últimos 3 segundos de cada fase longa ou de descanso.

@@ -4,6 +4,7 @@ import { useTTS } from '../hooks/useTTS';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { Pause, Play, SkipForward, X, AlertTriangle, ArrowLeftRight, Timer } from 'lucide-react';
 import NumberInput from './common/NumberInput';
+import DashedTimer from './common/DashedTimer';
 import WorkoutSummary from './WorkoutSummary';
 import WeightAdviceIcon from './common/WeightAdviceIcon';
 
@@ -467,35 +468,44 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                 }}>
 
                     {/* Primary Display: Cadence Countdown (Big) */}
-                    {/* MODIFIED: PREP Phase is now INCLUDED here */}
                     {(!isResting && state.phase !== PHASE.FINISHED) && (
-                        <div style={{
-                            fontSize: state.phase === PHASE.ISOMETRIC_WORK ? '5.5rem' : '8rem',
-                            fontFamily: "'Digital-7 Mono', monospace",
-                            fontWeight: 'normal', lineHeight: 1, fontVariantNumeric: 'tabular-nums',
-                            transition: 'all 0.3s ease',
-                            marginBottom: '0px'
-                        }}>
-                            {(() => {
-                                if (state.phase === PHASE.PREP) {
-                                    return String(Math.ceil(Math.max(0, state.timeLeft))).padStart(2, '0');
-                                }
-                                if (state.phase === PHASE.ISOMETRIC_WORK) {
-                                    if (currentExercise.failureMode && state.timeLeft <= 0) {
-                                        const t = Math.abs(state.timeLeft);
+                        <DashedTimer
+                            progress={progress}
+                            size={270}
+                            strokeWidth={12}
+                            dashCount={60}
+                            color="white"
+                            bgColor="rgba(255,255,255,0.15)"
+                            margin="10px 0"
+                        >
+                            <div style={{
+                                fontSize: state.phase === PHASE.ISOMETRIC_WORK ? '5rem' : '6.5rem',
+                                fontFamily: "'Digital-7 Mono', monospace",
+                                fontWeight: 'normal', lineHeight: 1, fontVariantNumeric: 'tabular-nums',
+                                transition: 'all 0.3s ease',
+                                marginBottom: '0px'
+                            }}>
+                                {(() => {
+                                    if (state.phase === PHASE.PREP) {
+                                        return String(Math.ceil(Math.max(0, state.timeLeft))).padStart(2, '0');
+                                    }
+                                    if (state.phase === PHASE.ISOMETRIC_WORK) {
+                                        if (currentExercise.failureMode && state.timeLeft <= 0) {
+                                            const t = Math.abs(state.timeLeft);
+                                            const mins = Math.floor(t / 60);
+                                            const secs = t % 60;
+                                            return '+' + mins + ':' + String(Math.floor(secs)).padStart(2, '0') + '.' + Math.floor((secs % 1) * 10);
+                                        }
+                                        const t = Math.max(0, state.timeLeft);
                                         const mins = Math.floor(t / 60);
                                         const secs = t % 60;
-                                        return '+' + mins + ':' + String(Math.floor(secs)).padStart(2, '0') + '.' + Math.floor((secs % 1) * 10);
+                                        return mins + ':' + String(Math.floor(secs)).padStart(2, '0') + '.' + Math.floor((secs % 1) * 10);
                                     }
                                     const t = Math.max(0, state.timeLeft);
-                                    const mins = Math.floor(t / 60);
-                                    const secs = t % 60;
-                                    return mins + ':' + String(Math.floor(secs)).padStart(2, '0') + '.' + Math.floor((secs % 1) * 10);
-                                }
-                                const t = Math.max(0, state.timeLeft);
-                                return String(Math.floor(t)).padStart(2, '0') + '.' + Math.floor((t % 1) * 10);
-                            })()}
-                        </div>
+                                    return String(Math.floor(t)).padStart(2, '0') + '.' + Math.floor((t % 1) * 10);
+                                })()}
+                            </div>
+                        </DashedTimer>
                     )}
 
                     {/* Secondary Display: Executed Reps/Time (Small, with Feedback) */}
@@ -559,7 +569,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                             boxSizing: 'border-box'
                         }}>
                             {/* Timer */}
-                            <div style={{ fontSize: '5rem', fontFamily: "'Digital-7 Mono', monospace", fontWeight: 'normal', lineHeight: 1 }}>
+                            <div style={{ fontSize: '5rem', fontFamily: "'Digital-7 Mono', monospace", fontWeight: 'normal', lineHeight: 1, margin: '10px 0' }}>
                                 {(() => {
                                     const t = Math.ceil(Math.max(0, state.timeLeft));
                                     return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0');

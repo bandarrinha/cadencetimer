@@ -2,31 +2,71 @@ import React from 'react';
 
 export default function DashedTimer({
     progress = 1, // 0 to 1
-    duration = 0, // Used for the label
     size = 280,
-    strokeWidth = 14,
+    strokeWidth = 12,
     color = "white",
     bgColor = "rgba(255,255,255,0.2)",
-    dashCount = 60,
+    dashCount = 50,
+    margin = "10px 0",
     children
 }) {
     const center = size / 2;
     const radius = center - strokeWidth;
     const circumference = 2 * Math.PI * radius;
 
-    // Calculate dashed array based on count
+    // Gap vs Dash ratio
     const dashLength = circumference / dashCount;
-    // We want a gap between dashes. Let's make the dash 60% of the segment, gap 40%
     const dash = dashLength * 0.6;
     const gap = dashLength * 0.4;
 
-    // The total length of the stroke that should be visible based on progress
-    const strokeDashoffset = circumference * (1 - progress);
+    // The shrinking active bar
+    const strokeDashoffset = Math.max(0, circumference * (1 - progress));
 
     return (
-        <div style={{ position: 'relative', width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ position: 'relative', width: size, height: size, display: 'flex', alignItems: 'center', justifyContent: 'center', margin }}>
+
+            {/* Stopwatch Top Knob Detail */}
+            <div style={{
+                position: 'absolute',
+                top: -14,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: 20,
+                height: 8,
+                background: color,
+                borderRadius: '4px 4px 0 0',
+                opacity: 0.8
+            }} />
+            <div style={{
+                position: 'absolute',
+                top: -6,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                width: 12,
+                height: 10,
+                background: color,
+                opacity: 0.8
+            }} />
+
+            {/* SVG Ring */}
             <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ transform: 'rotate(-90deg)', position: 'absolute', top: 0, left: 0 }}>
-                {/* Background Full Dashed Circle */}
+                {/* 1. Define the Dashed Mask */}
+                <defs>
+                    <mask id="dash-mask">
+                        <circle
+                            cx={center}
+                            cy={center}
+                            r={radius}
+                            fill="none"
+                            stroke="white"
+                            strokeWidth={strokeWidth}
+                            strokeDasharray={`${dash} ${gap}`}
+                            strokeLinecap="butt"
+                        />
+                    </mask>
+                </defs>
+
+                {/* 2. Background Track (faded dashes) */}
                 <circle
                     cx={center}
                     cy={center}
@@ -34,11 +74,10 @@ export default function DashedTimer({
                     fill="none"
                     stroke={bgColor}
                     strokeWidth={strokeWidth}
-                    strokeDasharray={`${dash} ${gap}`}
-                    strokeLinecap="round"
+                    mask="url(#dash-mask)"
                 />
 
-                {/* Foreground Progress Dashed Circle */}
+                {/* 3. Foreground Progress (solid stroke masked by dashes) */}
                 <circle
                     cx={center}
                     cy={center}
@@ -46,16 +85,14 @@ export default function DashedTimer({
                     fill="none"
                     stroke={color}
                     strokeWidth={strokeWidth}
-                    strokeDasharray={`${dash} ${gap}`}
-                // To animate the progress, we use stroke-dashoffset on the overall length
-                // But combining that with individual dashes requires a mask trick or just
-                // a solid stroke with a dashed mask.
-                // simpler approach: solid stroke with dashed stroke over it? No, if we want
-                // the dashes themselves to disappear one by one, we use a solid stroke with stroke-dashoffset
-                // masked by the dashes.
+                    strokeDasharray={circumference}
+                    strokeDashoffset={strokeDashoffset}
+                    strokeLinecap="butt"
+                    mask="url(#dash-mask)"
+                    style={{ transition: 'stroke-dashoffset 0.1s linear' }}
                 />
             </svg>
-            <div style={{ zIndex: 1, position: 'relative' }}>
+            <div style={{ zIndex: 1, position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 {children}
             </div>
         </div>
