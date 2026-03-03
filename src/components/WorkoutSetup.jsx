@@ -17,7 +17,8 @@ const DEFAULT_EXERCISE = {
     restExercise: 60,
     biSetId: null, // Added for grouping
     prepTime: 5, // Added for configurable prep time
-    startSide: 'LEFT' // Added: Default starting side
+    startSide: 'LEFT', // Added: Default starting side
+    peakContraction: { enabled: false, duration: 3, position: 'after_concentric' }
 };
 
 const DEFAULT_WORKOUT = {
@@ -38,6 +39,7 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
             if (e.startSide === undefined) e.startSide = 'LEFT';
             if (e.repsMin === undefined) e.repsMin = e.reps;
             if (e.repsMax === undefined) e.repsMax = e.reps;
+            if (e.peakContraction === undefined) e.peakContraction = { enabled: false, duration: 3, position: 'after_concentric' };
         }));
         return parsed;
     });
@@ -75,7 +77,8 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
     // Restore default value on blur if field is empty
     const NUMERIC_DEFAULTS = {
         sets: 3, reps: 10, repsMin: 8, repsMax: 12,
-        restSet: 45, restExercise: 60, prepTime: 5, unilateralTransition: 5
+        restSet: 45, restExercise: 60, prepTime: 5, unilateralTransition: 5,
+        'peakContraction.duration': 3
     };
 
     const handleNumericBlur = (index, field) => {
@@ -96,6 +99,14 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
     const updateCadence = (index, field, value) => {
         const newExercises = [...activeWorkout.exercises];
         newExercises[index].cadence[field] = value === '' ? '' : (parseInt(value) || 0);
+        updateActiveWorkout({ ...activeWorkout, exercises: newExercises });
+    };
+
+    const updatePeakContraction = (index, field, value) => {
+        const newExercises = [...activeWorkout.exercises];
+        const pc = { ...newExercises[index].peakContraction };
+        pc[field] = value;
+        newExercises[index] = { ...newExercises[index], peakContraction: pc };
         updateActiveWorkout({ ...activeWorkout, exercises: newExercises });
     };
 
@@ -441,6 +452,50 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                                 </>
                             )}
 
+                            {/* Peak Contraction Settings */}
+                            {!ex.isIsometric && (
+                                <div style={{ marginTop: '12px', borderTop: '1px solid #333', paddingTop: '12px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9em', background: '#2a2a2a', padding: '6px 12px', borderRadius: '20px', border: ex.peakContraction?.enabled ? '1px solid #e040fb' : '1px solid transparent' }}>
+                                            <input type="checkbox" checked={ex.peakContraction?.enabled || false} onChange={(e) => updatePeakContraction(idx, 'enabled', e.target.checked)} />
+                                            Pico de Contração
+                                        </label>
+
+                                        {ex.peakContraction?.enabled && (
+                                            <>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9em', color: '#ccc' }}>
+                                                    Duração (s):
+                                                    <input
+                                                        type="number"
+                                                        value={ex.peakContraction.duration === '' ? '' : ex.peakContraction.duration}
+                                                        onChange={(e) => updatePeakContraction(idx, 'duration', e.target.value === '' ? '' : parseInt(e.target.value))}
+                                                        onBlur={() => {
+                                                            const val = ex.peakContraction.duration;
+                                                            if (val === '' || val === null || val === undefined || (typeof val === 'number' && isNaN(val))) {
+                                                                updatePeakContraction(idx, 'duration', 3);
+                                                            }
+                                                        }}
+                                                        style={{ ...inputStyle, width: '60px', marginTop: 0 }}
+                                                    />
+                                                </label>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9em', color: '#ccc' }}>
+                                                    Momento:
+                                                    <select
+                                                        value={ex.peakContraction.position || 'after_concentric'}
+                                                        onChange={(e) => updatePeakContraction(idx, 'position', e.target.value)}
+                                                        style={{ ...inputStyle, width: '180px', maxWidth: 'none', marginTop: 0 }}
+                                                    >
+                                                        <option value="before_concentric">Antes da Concêntrica</option>
+                                                        <option value="mid_concentric">Meio da Concêntrica</option>
+                                                        <option value="after_concentric">Depois da Concêntrica</option>
+                                                    </select>
+                                                </label>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
                             <h4 style={{ margin: '16px 0 8px', color: '#888', fontSize: '0.9em', textTransform: 'uppercase', letterSpacing: '1px' }}>Intervalos (Segundos)</h4>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
                                 <label style={{ fontSize: '0.9em', color: '#ccc' }}>
@@ -485,7 +540,7 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                                                 <select
                                                     value={ex.startSide || 'LEFT'}
                                                     onChange={(e) => updateExercise(idx, 'startSide', e.target.value)}
-                                                    style={{ ...inputStyle, width: 'auto', marginTop: 0 }}
+                                                    style={{ ...inputStyle, width: '120px', maxWidth: 'none', marginTop: 0 }}
                                                 >
                                                     <option value="LEFT">Esquerda</option>
                                                     <option value="RIGHT">Direita</option>

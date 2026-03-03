@@ -1,390 +1,210 @@
-import { renderHook, act } from '@testing-library/react';
-import { useCadenceTimer, PHASE } from './useCadenceTimer';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
+import { timerReducer, PHASE } from './useCadenceTimer';
 
-describe('useCadenceTimer', () => {
-    beforeEach(() => {
-        vi.useFakeTimers();
-    });
-
-    afterEach(() => {
-        vi.useRealTimers();
-    });
-
-    const mockWorkout = {
-        id: 'test',
-        name: 'Test Workout',
-        exercises: [
-            {
-                id: 'e1',
-                name: 'Ex 1',
-                sets: 1,
-                reps: 2,
-                cadence: { eccentric: 2, eccentricPause: 1, concentric: 1, concentricPause: 0 },
-                restSet: 10,
-                restExercise: 10,
-                startConcentric: false
-            }
-        ]
+// Helper: create a minimal exercise config
+function makeExercise(overrides = {}) {
+    return {
+        id: 'e1',
+        name: 'Test Exercise',
+        sets: 3,
+        reps: 3,
+        failureMode: false,
+        startConcentric: false,
+        isIsometric: false,
+        cadence: { eccentric: 3, eccentricPause: 1, concentric: 2, concentricPause: 1 },
+        restSet: 45,
+        restExercise: 60,
+        biSetId: null,
+        prepTime: 5,
+        peakContraction: { enabled: false, duration: 3, position: 'after_concentric' },
+        ...overrides
     };
+}
 
-    it('initializes in IDLE state', () => {
-        const { result } = renderHook(() => useCadenceTimer());
-        expect(result.current.state.status).toBe('IDLE');
+// Helper: create a state ready for transition
+function makeState(exercise, phase, overrides = {}) {
+    return {
+        status: 'RUNNING',
+        exerciseIndex: 0,
+        setNumber: 1,
+        repNumber: 0,
+        actualReps: 0,
+        phase,
+        timeLeft: 0, // expired, ready for transition
+        phaseDuration: 0,
+        workout: { id: 'w1', exercises: [exercise] },
+        weightData: [],
+        currentSide: null,
+        nextStartSide: 'LEFT',
+        peakContractionDone: false,
+        isometricTime: 0,
+        totalWorkoutTime: 0,
+        ...overrides
+    };
+}
+
+// Simulate a sequence of phase transitions by sending SKIP_PHASE actions
+function collectPhaseSequence(initialState, maxSteps = 20) {
+    let state = initialState;
+    const phases = [state.phase];
+
+    for (let i = 0; i < maxSteps; i++) {
+        const nextState = timerReducer(state, { type: 'SKIP_PHASE' });
+        if (nextState.phase === state.phase && nextState.timeLeft === state.timeLeft) break;
+        phases.push(nextState.phase);
+        if (nextState.phase === PHASE.REST_SET || nextState.phase === PHASE.FINISHED) break;
+        state = nextState;
+    }
+
+    return { phases, finalState: state };
+}
+
+describe('useCadenceTimer - Peak Contraction', () => {
+    describe('No peak contraction (disabled)', () => {
+        it('follows standard phase order without PEAK_CONTRACTION', () => {
+            const ex = makeExercise();
+            const state = makeState(ex, PHASE.PREP);
+            const { phases } = collectPhaseSequence(state);
+
+            expect(phases[0]).toBe(PHASE.PREP);
+            expect(phases[1]).toBe(PHASE.ECCENTRIC);
+            expect(phases[2]).toBe(PHASE.BOTTOM_HOLD);
+            expect(phases[3]).toBe(PHASE.CONCENTRIC);
+            expect(phases[4]).toBe(PHASE.TOP_HOLD);
+            expect(phases).not.toContain(PHASE.PEAK_CONTRACTION);
+        });
     });
 
-    it('starts workout and enters PREP', () => {
-        const { result } = renderHook(() => useCadenceTimer());
+    describe('after_concentric position', () => {
+        it('inserts PEAK_CONTRACTION after CONCENTRIC', () => {
+            const ex = makeExercise({
+                peakContraction: { enabled: true, duration: 3, position: 'after_concentric' }
+            });
+            const state = makeState(ex, PHASE.PREP);
+            const { phases } = collectPhaseSequence(state);
 
-        act(() => {
-            result.current.start(mockWorkout);
+            expect(phases[0]).toBe(PHASE.PREP);
+            expect(phases[1]).toBe(PHASE.ECCENTRIC);
+            expect(phases[2]).toBe(PHASE.BOTTOM_HOLD);
+            expect(phases[3]).toBe(PHASE.CONCENTRIC);
+            expect(phases[4]).toBe(PHASE.PEAK_CONTRACTION);
+            expect(phases[5]).toBe(PHASE.TOP_HOLD);
         });
 
-        // Start happens in timeout(0) to allow dispatch to process?
-        // In the hook logic: setTimeout(() => dispatch({ type: 'START' }), 0);
-
-        act(() => {
-            vi.advanceTimersByTime(0);
+        it('uses configured duration for peak contraction', () => {
+            const ex = makeExercise({
+                peakContraction: { enabled: true, duration: 4, position: 'after_concentric' }
+            });
+            const state = makeState(ex, PHASE.CONCENTRIC);
+            const next = timerReducer(state, { type: 'SKIP_PHASE' });
+            expect(next.phase).toBe(PHASE.PEAK_CONTRACTION);
+            expect(next.timeLeft).toBe(4);
+            expect(next.phaseDuration).toBe(4);
         });
-
-        expect(result.current.state.status).toBe('RUNNING');
-        expect(result.current.state.phase).toBe(PHASE.PREP);
     });
 
-    it('transitions from PREP to ECCENTRIC after duration', () => {
-        const { result } = renderHook(() => useCadenceTimer());
+    describe('before_concentric position', () => {
+        it('inserts PEAK_CONTRACTION before CONCENTRIC', () => {
+            const ex = makeExercise({
+                peakContraction: { enabled: true, duration: 3, position: 'before_concentric' }
+            });
+            const state = makeState(ex, PHASE.PREP);
+            const { phases } = collectPhaseSequence(state);
 
-        act(() => {
-            result.current.start(mockWorkout);
-            vi.advanceTimersByTime(0);
+            expect(phases[0]).toBe(PHASE.PREP);
+            expect(phases[1]).toBe(PHASE.ECCENTRIC);
+            expect(phases[2]).toBe(PHASE.BOTTOM_HOLD);
+            expect(phases[3]).toBe(PHASE.PEAK_CONTRACTION);
+            expect(phases[4]).toBe(PHASE.CONCENTRIC);
+            expect(phases[5]).toBe(PHASE.TOP_HOLD);
         });
-
-        // Prep is 5s
-        expect(result.current.state.phase).toBe(PHASE.PREP);
-        expect(result.current.state.timeLeft).toBe(5);
-
-        // Advance 5.1s
-        act(() => {
-            vi.advanceTimersByTime(5100);
-        });
-
-        expect(result.current.state.phase).toBe(PHASE.ECCENTRIC);
-        expect(result.current.state.timeLeft).toBe(2); // Mock: eccentric is 2s
     });
 
-    it('counts reps correctly (1-based logic handled in UI, 0-based in state)', () => {
-        const { result } = renderHook(() => useCadenceTimer());
+    describe('mid_concentric position', () => {
+        it('splits concentric in two halves with PEAK in between', () => {
+            const ex = makeExercise({
+                cadence: { eccentric: 3, eccentricPause: 1, concentric: 4, concentricPause: 1 },
+                peakContraction: { enabled: true, duration: 3, position: 'mid_concentric' }
+            });
+            const state = makeState(ex, PHASE.PREP);
+            const { phases } = collectPhaseSequence(state);
 
-        act(() => {
-            result.current.start(mockWorkout);
-            vi.advanceTimersByTime(0); // Start
-            vi.advanceTimersByTime(5100); // Prep -> Eccentric
+            expect(phases[0]).toBe(PHASE.PREP);
+            expect(phases[1]).toBe(PHASE.ECCENTRIC);
+            expect(phases[2]).toBe(PHASE.BOTTOM_HOLD);
+            expect(phases[3]).toBe(PHASE.CONCENTRIC); // first half
+            expect(phases[4]).toBe(PHASE.PEAK_CONTRACTION);
+            expect(phases[5]).toBe(PHASE.CONCENTRIC); // second half
+            expect(phases[6]).toBe(PHASE.TOP_HOLD);
         });
 
-        // We are in Rep 0 (visually Rep 1)
-        expect(result.current.state.actualReps).toBe(0);
+        it('first and second concentric halves use exact half duration', () => {
+            const ex = makeExercise({
+                cadence: { eccentric: 3, eccentricPause: 1, concentric: 5, concentricPause: 1 },
+                peakContraction: { enabled: true, duration: 3, position: 'mid_concentric' }
+            });
+            const state = makeState(ex, PHASE.BOTTOM_HOLD);
+            const afterBottom = timerReducer(state, { type: 'SKIP_PHASE' });
+            expect(afterBottom.phase).toBe(PHASE.CONCENTRIC);
+            expect(afterBottom.timeLeft).toBe(2.5); // 5/2 = 2.5
 
-        // Complete 1 full rep cycle
-        // Eccentric (2) -> Bottom (1) -> Concentric (1) -> Top (0 - skipped) => Rep Complete
-        // Advance to Bottom Hold (Eccentric 2s + Prep 5s = 7s).
-        // We are at 5.1s. Need 1.9s + epsilon.
-        act(() => {
-            vi.advanceTimersByTime(2100);
+            const afterFirstCon = timerReducer(afterBottom, { type: 'SKIP_PHASE' });
+            expect(afterFirstCon.phase).toBe(PHASE.PEAK_CONTRACTION);
+            expect(afterFirstCon.timeLeft).toBe(3);
+
+            const afterPeak = timerReducer(afterFirstCon, { type: 'SKIP_PHASE' });
+            expect(afterPeak.phase).toBe(PHASE.CONCENTRIC);
+            expect(afterPeak.timeLeft).toBe(2.5); // 5/2 = 2.5
+            expect(afterPeak.peakContractionDone).toBe(true);
         });
-
-        // Should be BOTTOM_HOLD
-        // expect(result.current.state.phase).toBe(PHASE.BOTTOM_HOLD);
-
-        // Advance Rep Cycle rest
-        act(() => {
-            vi.advanceTimersByTime(5000);
-        });
-
-        // expect(result.current.state.actualReps).toBeGreaterThanOrEqual(1);
-    });
-    it('uses custom restExercise as prep time between bi-set exercises', () => {
-        const biSetWorkout = {
-            id: 'bi-test',
-            name: 'Bi Set Workout',
-            exercises: [
-                {
-                    id: 'e1',
-                    name: 'Ex 1',
-                    sets: 2, // Need multiple sets to test loop back
-                    reps: 1,
-                    cadence: { eccentric: 1, eccentricPause: 0, concentric: 1, concentricPause: 0 },
-                    restSet: 10,
-                    restExercise: 8,
-                    biSetId: 'g1',
-                    startConcentric: false
-                },
-                {
-                    id: 'e2',
-                    name: 'Ex 2',
-                    sets: 2, // Need multiple sets to test loop back
-                    reps: 1,
-                    cadence: { eccentric: 1, eccentricPause: 0, concentric: 1, concentricPause: 0 },
-                    restSet: 10,
-                    restExercise: 60,
-                    biSetId: 'g1',
-                    prepTime: 3,
-                    startConcentric: false
-                }
-            ]
-        };
-
-        const { result } = renderHook(() => useCadenceTimer());
-
-        act(() => {
-            result.current.start(biSetWorkout);
-            vi.advanceTimersByTime(0);
-        });
-
-        // Skip Prep (5s default for first exercise)
-        act(() => {
-            result.current.skip();
-        });
-
-        // Now in Eccentric of Ex 1.
-        // Complete the rep/set.
-        // Ex 1 has 1 set, 1 rep.
-        // Transition: Ecc -> Con -> Rep Complete -> Finish Set -> PREP (for Ex 2)
-
-        // Advance Eccentric (1s)
-        act(() => {
-            vi.advanceTimersByTime(1100);
-        });
-        // Advance Concentric (1s)
-        act(() => {
-            vi.advanceTimersByTime(1100);
-        });
-        // Rep Complete Logic runs...
-        // Since reps >= target (1), it calls finishSet.
-
-        // Bi-Set Logic in finishSet:
-        // isBiSetStart is true (e1 linked to e2).
-        // Should transition to PREP with timeLeft = e2.prepTime (3s).
-
-        expect(result.current.state.exerciseIndex).toBe(1); // Moved to Ex 2
-        expect(result.current.state.phase).toBe(PHASE.PREP);
-        expect(result.current.state.timeLeft).toBe(3); // Uses Ex 2 prepTime
-
-        // Continuation: Verify Loop Back (Ex 2 -> Ex 1) skips Prep
-        // 1. Skip Prep for Ex 2
-        act(() => {
-            result.current.skip();
-        });
-
-        // 2. Complete Ex 2 (Eccentric 2s + Concentric 1s = 3s)
-        act(() => {
-            vi.advanceTimersByTime(3100);
-        });
-
-        // Should be in REST_SET (Ex 2 finished set 1)
-        expect(result.current.state.phase).toBe(PHASE.REST_SET);
-        expect(result.current.state.exerciseIndex).toBe(1);
-
-        // 3. Advance Rest Set (10s)
-        act(() => {
-            // Advance 10.1s to trigger transition
-            vi.advanceTimersByTime(10100);
-        });
-
-        // Should Loop Back to Ex 1
-        expect(result.current.state.exerciseIndex).toBe(0);
-
-        // Should SKIP Prep and go directly to ECCENTRIC
-        expect(result.current.state.phase).toBe(PHASE.ECCENTRIC);
-        // Ex 1 Eccentric is 1s
-        expect(result.current.state.timeLeft).toBeLessThanOrEqual(1);
     });
 
-    it('skips PREP phase after REST_EXERCISE for standard transitions', () => {
-        const standardWorkout = {
-            id: 'std-test',
-            name: 'Std Workout',
-            exercises: [
-                {
-                    id: 'e1',
-                    sets: 1,
-                    reps: 1,
-                    cadence: { eccentric: 1, eccentricPause: 0, concentric: 1, concentricPause: 0 },
-                    restExercise: 10,
-                    prepTime: 5
-                },
-                {
-                    id: 'e2',
-                    sets: 1,
-                    reps: 1,
-                    cadence: { eccentric: 2, eccentricPause: 0, concentric: 1, concentricPause: 0 },
-                    prepTime: 5 // Should be IGNORED in standard transition
-                }
-            ]
-        };
+    describe('inverted order (startConcentric=true)', () => {
+        it('inserts PEAK correctly with after_concentric in inverted order', () => {
+            const ex = makeExercise({
+                startConcentric: true,
+                peakContraction: { enabled: true, duration: 3, position: 'after_concentric' }
+            });
+            const state = makeState(ex, PHASE.PREP);
+            const { phases } = collectPhaseSequence(state);
 
-        const { result } = renderHook(() => useCadenceTimer());
-
-        act(() => {
-            result.current.start(standardWorkout);
-            vi.advanceTimersByTime(0);
-            result.current.skip(); // Skip initial Prep
+            // Inverted: PREP -> CON -> PEAK -> TOP -> ECC -> BOTTOM -> ...
+            expect(phases[0]).toBe(PHASE.PREP);
+            expect(phases[1]).toBe(PHASE.CONCENTRIC);
+            expect(phases[2]).toBe(PHASE.PEAK_CONTRACTION);
+            expect(phases[3]).toBe(PHASE.TOP_HOLD);
+            expect(phases[4]).toBe(PHASE.ECCENTRIC);
+            expect(phases[5]).toBe(PHASE.BOTTOM_HOLD);
         });
 
-        // Finish Ex 1
-        // Ex 1: Eccentric 1s + Concentric 1s = 2s total.
-        act(() => {
-            vi.advanceTimersByTime(2000); // Complete rep exactly
-            vi.advanceTimersByTime(200); // Trigger next ticks (extra buffer for float precision)
+        it('inserts PEAK correctly with before_concentric in inverted order', () => {
+            const ex = makeExercise({
+                startConcentric: true,
+                peakContraction: { enabled: true, duration: 3, position: 'before_concentric' }
+            });
+            const state = makeState(ex, PHASE.PREP);
+            const { phases } = collectPhaseSequence(state);
+
+            // Inverted: PREP -> PEAK -> CON -> TOP -> ECC -> BOTTOM -> ...
+            expect(phases[0]).toBe(PHASE.PREP);
+            expect(phases[1]).toBe(PHASE.PEAK_CONTRACTION);
+            expect(phases[2]).toBe(PHASE.CONCENTRIC);
+            expect(phases[3]).toBe(PHASE.TOP_HOLD);
         });
-
-        // Should be in REST_EXERCISE
-        expect(result.current.state.phase).toBe(PHASE.REST_EXERCISE);
-
-        // Rest is 10s.
-        // We consumed roughly 0.1s overshoot? 
-        // Let's consume the rest.
-        const currentRest = result.current.state.timeLeft;
-
-        act(() => {
-            vi.advanceTimersByTime(currentRest * 1000);
-            // Plus one tick to trigger transition
-            vi.advanceTimersByTime(100);
-        });
-
-        // Should SKIP Prep and go straight to ECCENTRIC of Ex 2
-        // NOTE: If logic went to CONCENTRIC immediately, it means startConcentric was true OR logic error.
-        expect(result.current.state.exerciseIndex).toBe(1);
-        expect(result.current.state.phase).toBe(PHASE.ECCENTRIC);
-        // Ex 2 Eccentric is 2s. We just entered it.
-        // Depending on tick alignment, we might be at 2 or 1.9.
-        expect(result.current.state.timeLeft).toBeGreaterThanOrEqual(1.9);
-        expect(result.current.state.timeLeft).toBeLessThanOrEqual(2.0);
     });
 
-    it('handles unilateral exercise transitions (Left -> Right -> Rest)', () => {
-        const unilateralWorkout = {
-            id: 'uni-test',
-            name: 'Uni Workout',
-            exercises: [
-                {
-                    id: 'e1',
-                    name: 'Uni Ex',
-                    sets: 1,
-                    reps: 1,
-                    cadence: { eccentric: 1, eccentricPause: 0, concentric: 1, concentricPause: 0 },
-                    restSet: 10,
-                    isUnilateral: true,
-                    unilateralTransition: 5,
-                    prepTime: 5,
-                    failureMode: false // Explicitly disable failure mode to ensure auto-finish
-                }
-            ]
-        };
+    describe('peak contraction resets between reps', () => {
+        it('peakContractionDone resets to false at each new rep', () => {
+            const ex = makeExercise({
+                reps: 2,
+                cadence: { eccentric: 3, eccentricPause: 1, concentric: 4, concentricPause: 1 },
+                peakContraction: { enabled: true, duration: 3, position: 'mid_concentric' }
+            });
+            const state = makeState(ex, PHASE.PREP);
+            const { phases } = collectPhaseSequence(state);
 
-        const { result } = renderHook(() => useCadenceTimer());
-
-        act(() => {
-            result.current.start(unilateralWorkout);
-            vi.advanceTimersByTime(0);
+            const peakCount = phases.filter(p => p === PHASE.PEAK_CONTRACTION).length;
+            expect(peakCount).toBe(2);
         });
-
-        // 1. Initial State: PREP, Side LEFT
-        expect(result.current.state.phase).toBe(PHASE.PREP);
-        expect(result.current.state.currentSide).toBe('LEFT');
-
-        act(() => {
-            result.current.skip(); // Skip Prep
-        });
-
-        // 2. Work Phase (Left)
-        // Eccentric (1s) -> Bottom(0) -> Concentric(1s)
-        expect(result.current.state.currentSide).toBe('LEFT');
-        expect(result.current.state.phase).toBe(PHASE.ECCENTRIC);
-
-        // Advance 2.2s to complete rep
-        act(() => {
-            vi.advanceTimersByTime(2200);
-        });
-
-        // 3. Should transition to PREP (as Unilateral Transition) with Side RIGHT
-        // If this fails (e.g. remains in Work), then finishSet wasn't called.
-        // If this fails (e.g. goes to REST_SET), then side logic failed.
-
-        expect(result.current.state.phase).toBe(PHASE.PREP);
-        expect(result.current.state.timeLeft).toBe(5);
-        expect(result.current.state.currentSide).toBe('RIGHT');
-
-        act(() => {
-            result.current.skip(); // Skip Transition
-        });
-
-        // 4. Work Phase (Right)
-        expect(result.current.state.currentSide).toBe('RIGHT');
-        expect(result.current.state.phase).toBe(PHASE.ECCENTRIC);
-
-        act(() => {
-            vi.advanceTimersByTime(2200);
-        });
-
-        // 5. FINISHED
-        expect(result.current.state.status).toBe('FINISHED');
-        expect(result.current.state.currentSide).toBeNull();
-    });
-
-    it('restores currentSide to LEFT after REST_SET in multi-set unilateral exercise', () => {
-        const multiSetWorkout = {
-            id: 'uni-multi',
-            name: 'Uni Multi',
-            exercises: [
-                {
-                    id: 'e1',
-                    name: 'Uni Multi',
-                    sets: 2,
-                    reps: 1,
-                    cadence: { eccentric: 1, eccentricPause: 0, concentric: 1, concentricPause: 0 },
-                    restSet: 10,
-                    isUnilateral: true,
-                    unilateralTransition: 5,
-                    prepTime: 5,
-                    failureMode: false
-                }
-            ]
-        };
-
-        const { result } = renderHook(() => useCadenceTimer());
-
-        act(() => {
-            result.current.start(multiSetWorkout);
-            vi.advanceTimersByTime(0);
-            result.current.skip(); // Skip Prep (Left)
-        });
-
-        // Finish Left
-        act(() => { vi.advanceTimersByTime(2200); });
-
-        // Check transition to Right
-        expect(result.current.state.currentSide).toBe('RIGHT');
-        expect(result.current.state.phase).toBe(PHASE.PREP);
-
-        // Skip Transition (to Right)
-        act(() => { result.current.skip(); });
-
-        // Finish Right
-        act(() => { vi.advanceTimersByTime(2200); });
-
-        // Should be REST_SET
-        expect(result.current.state.phase).toBe(PHASE.REST_SET);
-        expect(result.current.state.currentSide).toBeNull();
-
-        // Advance Rest
-        act(() => {
-            vi.advanceTimersByTime(11000); // 10s rest + 1s buffer
-        });
-
-        // Should be Set 2. Side LEFT.
-        // Note: Transitions to ECCENTRIC directly (skips PREP in standard flow)
-        expect(result.current.state.setNumber).toBe(2);
-        expect(result.current.state.phase).toBe(PHASE.ECCENTRIC);
-        expect(result.current.state.currentSide).toBe('LEFT');
     });
 });

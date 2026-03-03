@@ -11,7 +11,8 @@ export const PHASE = {
     REST_SET: 'REST_SET',
     REST_EXERCISE: 'REST_EXERCISE',
     FINISHED: 'FINISHED',
-    ISOMETRIC_WORK: 'ISOMETRIC_WORK'
+    ISOMETRIC_WORK: 'ISOMETRIC_WORK',
+    PEAK_CONTRACTION: 'PEAK_CONTRACTION'
 };
 
 const STORAGE_KEY = 'cadence_active_recovery';
@@ -31,7 +32,8 @@ const initialState = {
     finishTime: null, // Timestamp when workout finished
     totalWorkoutTime: 0, // Duration in seconds
     currentSide: null, // 'LEFT', 'RIGHT' or null (for non-unilateral or rest)
-    nextStartSide: 'LEFT' // Usage: which side to start with on next set
+    nextStartSide: 'LEFT', // Usage: which side to start with on next set
+    peakContractionDone: false // Track if mid-concentric peak contraction has fired this rep
 };
 
 export function timerReducer(state, action) {
@@ -181,6 +183,68 @@ export function timerReducer(state, action) {
     }
 }
 
+// Build the phase order for an exercise, inserting PEAK_CONTRACTION as needed
+function buildPhaseOrder(exercise, peakContractionDone) {
+    const startConcentric = exercise.startConcentric || false;
+    const orderStd = [PHASE.ECCENTRIC, PHASE.BOTTOM_HOLD, PHASE.CONCENTRIC, PHASE.TOP_HOLD];
+    const orderInv = [PHASE.CONCENTRIC, PHASE.TOP_HOLD, PHASE.ECCENTRIC, PHASE.BOTTOM_HOLD];
+    const baseOrder = startConcentric ? [...orderInv] : [...orderStd];
+
+    const pc = exercise.peakContraction;
+    if (!pc || !pc.enabled || !pc.duration) return baseOrder;
+
+    const conIdx = baseOrder.indexOf(PHASE.CONCENTRIC);
+    if (conIdx === -1) return baseOrder;
+
+    if (pc.position === 'before_concentric') {
+        // Insert PEAK before CONCENTRIC
+        baseOrder.splice(conIdx, 0, PHASE.PEAK_CONTRACTION);
+    } else if (pc.position === 'after_concentric') {
+        // Insert PEAK after CONCENTRIC
+        baseOrder.splice(conIdx + 1, 0, PHASE.PEAK_CONTRACTION);
+    } else if (pc.position === 'mid_concentric') {
+        // For mid: CON -> PEAK -> CON (second half)
+        // On first pass (!peakContractionDone): CON(half) then PEAK, then CON(half)
+        // We represent this as CON -> PEAK -> CON in the order
+        // The duration logic in getDurationForPhase handles the half-split
+        if (!peakContractionDone) {
+            baseOrder.splice(conIdx + 1, 0, PHASE.PEAK_CONTRACTION, PHASE.CONCENTRIC);
+        }
+        // If peakContractionDone, we are in the second concentric half — normal order, no extra insertion
+    }
+
+    return baseOrder;
+}
+
+// Get the duration of a phase for a given exercise, considering peak contraction mid-split
+function getDurationForPhase(phase, exercise, orderList, phaseIdx, peakContractionDone) {
+    const cadence = exercise.cadence;
+    const pc = exercise.peakContraction;
+
+    if (phase === PHASE.PEAK_CONTRACTION) {
+        return pc ? pc.duration : 0;
+    }
+
+    if (phase === PHASE.ECCENTRIC) return cadence.eccentric;
+    if (phase === PHASE.BOTTOM_HOLD) return cadence.eccentricPause;
+    if (phase === PHASE.TOP_HOLD) return cadence.concentricPause;
+
+    if (phase === PHASE.CONCENTRIC) {
+        // Check if mid_concentric split is active
+        if (pc && pc.enabled && pc.position === 'mid_concentric' && !peakContractionDone) {
+            // This is the first concentric half
+            return cadence.concentric / 2;
+        }
+        if (pc && pc.enabled && pc.position === 'mid_concentric' && peakContractionDone) {
+            // This is the second concentric half
+            return cadence.concentric / 2;
+        }
+        return cadence.concentric;
+    }
+
+    return 0;
+}
+
 function transitionPhase(state) {
     const { workout, exerciseIndex, phase } = state;
     if (!workout || !workout.exercises || !workout.exercises[exerciseIndex]) {
@@ -191,7 +255,7 @@ function transitionPhase(state) {
     const cadence = currentExercise.cadence;
     const startConcentric = currentExercise.startConcentric || false;
 
-    // Helper: map phase enum to cadence duration value
+    // Helper: map phase enum to cadence duration value (legacy, used for non-peak-contraction contexts)
     const getDuration = (p) => {
         switch (p) {
             case PHASE.ECCENTRIC: return cadence.eccentric;
@@ -202,42 +266,34 @@ function transitionPhase(state) {
         }
     };
 
-    // Determine Order
-    // Order 1 (Std): ECC -> BOTTOM -> CON -> TOP -> Loop
-    // Order 2 (Inv): CON -> TOP -> ECC -> BOTTOM -> Loop
-
+    // Determine Order (legacy, used for transitions from rest/prep to other exercises)
     const orderStd = [PHASE.ECCENTRIC, PHASE.BOTTOM_HOLD, PHASE.CONCENTRIC, PHASE.TOP_HOLD];
     const orderInv = [PHASE.CONCENTRIC, PHASE.TOP_HOLD, PHASE.ECCENTRIC, PHASE.BOTTOM_HOLD];
-    const order = startConcentric ? orderInv : orderStd;
+
+    // Build the full order including peak contraction for current exercise
+    const order = buildPhaseOrder(currentExercise, state.peakContractionDone);
 
     if (phase === PHASE.REST_EXERCISE) {
         // Transition to Next Exercise -> SKIP PREP (Go directly to Work)
         const nextExercise = workout.exercises[exerciseIndex + 1];
 
         // We need to calculate the initial phase for the next exercise
-        const startConcentricNext = nextExercise.startConcentric || false;
-        const nextOrder = startConcentricNext ? orderInv : orderStd;
+        const nextOrder = buildPhaseOrder(nextExercise, false);
         const firstPhase = nextOrder[0];
 
         // Need cadence for next exercise to determine duration
-        const nextCadence = nextExercise.cadence;
-        const nextGetDur = (p) => {
-            if (p === PHASE.ECCENTRIC) return nextCadence.eccentric;
-            if (p === PHASE.BOTTOM_HOLD) return nextCadence.eccentricPause;
-            if (p === PHASE.CONCENTRIC) return nextCadence.concentric;
-            if (p === PHASE.TOP_HOLD) return nextCadence.concentricPause;
-            return 0;
-        };
+        const nextDur = getDurationForPhase(firstPhase, nextExercise, nextOrder, 0, false);
 
         return {
             ...state,
             exerciseIndex: exerciseIndex + 1,
             phase: firstPhase, // Direct to work phase
-            timeLeft: nextGetDur(firstPhase),
-            phaseDuration: nextGetDur(firstPhase),
+            timeLeft: nextDur,
+            phaseDuration: nextDur,
             setNumber: 1,
             repNumber: 0,
             actualReps: 0,
+            peakContractionDone: false,
             currentSide: nextExercise.isUnilateral ? (nextExercise.startSide || 'LEFT') : null,
             nextStartSide: nextExercise.isUnilateral ? (nextExercise.startSide || 'LEFT') : 'LEFT'
         };
@@ -271,29 +327,20 @@ function transitionPhase(state) {
                     const targetExercise = workout.exercises[firstIndex];
 
                     // Calculate initial phase for target exercise
-                    const startConcentricTarget = targetExercise.startConcentric || false;
-                    const targetOrder = startConcentricTarget ? orderInv : orderStd;
+                    const targetOrder = buildPhaseOrder(targetExercise, false);
                     const firstPhaseTarget = targetOrder[0];
-
-                    // Get cadence duration
-                    const targetCadence = targetExercise.cadence;
-                    const targetGetDur = (p) => {
-                        if (p === PHASE.ECCENTRIC) return targetCadence.eccentric;
-                        if (p === PHASE.BOTTOM_HOLD) return targetCadence.eccentricPause;
-                        if (p === PHASE.CONCENTRIC) return targetCadence.concentric;
-                        if (p === PHASE.TOP_HOLD) return targetCadence.concentricPause;
-                        return 0;
-                    };
+                    const targetDur = getDurationForPhase(firstPhaseTarget, targetExercise, targetOrder, 0, false);
 
                     return {
                         ...state,
                         exerciseIndex: firstIndex,
                         phase: firstPhaseTarget, // Direct to work
-                        timeLeft: targetGetDur(firstPhaseTarget),
-                        phaseDuration: targetGetDur(firstPhaseTarget),
+                        timeLeft: targetDur,
+                        phaseDuration: targetDur,
                         // setNumber is already correct (N+1)
                         repNumber: 0,
                         actualReps: 0,
+                        peakContractionDone: false,
                         currentSide: targetExercise.isUnilateral ? (targetExercise.startSide || 'LEFT') : null,
                         nextStartSide: targetExercise.isUnilateral ? (targetExercise.startSide || 'LEFT') : 'LEFT'
                     };
@@ -324,7 +371,22 @@ function transitionPhase(state) {
             ? (state.nextStartSide || 'LEFT')
             : state.currentSide;
 
-        return enterPhase({ ...state, currentSide: nextSide }, order[0], getDuration(order[0]), order);
+        const freshOrder = buildPhaseOrder(currentExercise, false);
+        const firstDur = getDurationForPhase(freshOrder[0], currentExercise, freshOrder, 0, false);
+        return enterPhase({ ...state, currentSide: nextSide, peakContractionDone: false }, freshOrder[0], firstDur, freshOrder);
+    }
+
+    // Handle PEAK_CONTRACTION completion -> update peakContractionDone flag
+    if (phase === PHASE.PEAK_CONTRACTION) {
+        const pc = currentExercise.peakContraction;
+        if (pc && pc.position === 'mid_concentric') {
+            // After peak, we need to enter the second half of concentric
+            // Rebuild order with peakContractionDone = true (no extra PEAK/CON insertion)
+            const newState = { ...state, peakContractionDone: true };
+            const newOrder = buildPhaseOrder(currentExercise, true);
+            const conDur = getDurationForPhase(PHASE.CONCENTRIC, currentExercise, newOrder, 0, true);
+            return enterPhase(newState, PHASE.CONCENTRIC, conDur, newOrder);
+        }
     }
 
     // Find current index in order
@@ -345,13 +407,26 @@ function transitionPhase(state) {
                 };
             }
         }
+        // PEAK_CONTRACTION for before/after positions
+        if (phase === PHASE.PEAK_CONTRACTION) {
+            // Find PEAK in order and continue to next
+            const peakIdx = order.indexOf(PHASE.PEAK_CONTRACTION);
+            if (peakIdx !== -1 && peakIdx < order.length - 1) {
+                const nextP = order[peakIdx + 1];
+                const nextDur = getDurationForPhase(nextP, currentExercise, order, peakIdx + 1, state.peakContractionDone);
+                return enterPhase(state, nextP, nextDur, order);
+            }
+            // Fallback: end of chain
+            return completeRep(state, order);
+        }
         return state;
     }
 
     // Next in chain?
     if (idx < order.length - 1) {
         const nextP = order[idx + 1];
-        return enterPhase(state, nextP, getDuration(nextP), order);
+        const nextDur = getDurationForPhase(nextP, currentExercise, order, idx + 1, state.peakContractionDone);
+        return enterPhase(state, nextP, nextDur, order);
     } else {
         // End of chain -> Rep Complete
         return completeRep(state, order);
@@ -374,18 +449,9 @@ function enterPhase(state, phase, duration, orderList) {
     if (idx < orderList.length - 1) {
         // Next in list
         const nextP = orderList[idx + 1];
-        // Need to get duration for nextP. 
-        // We need access to 'cadence' here. But 'state' has it via workout.
         const exercise = state.workout.exercises[state.exerciseIndex];
-        const cad = exercise.cadence;
-        const getDur = (p) => {
-            if (p === PHASE.ECCENTRIC) return cad.eccentric;
-            if (p === PHASE.BOTTOM_HOLD) return cad.eccentricPause;
-            if (p === PHASE.CONCENTRIC) return cad.concentric;
-            if (p === PHASE.TOP_HOLD) return cad.concentricPause;
-            return 0;
-        };
-        return enterPhase(state, nextP, getDur(nextP), orderList);
+        const nextDur = getDurationForPhase(nextP, exercise, orderList, idx + 1, state.peakContractionDone);
+        return enterPhase(state, nextP, nextDur, orderList);
     } else {
         // End of list -> Complete Rep
         return completeRep(state, orderList);
@@ -552,23 +618,17 @@ function completeRep(state, orderList) {
         return finishSet({ ...state, repNumber: newRepCount, actualReps: newActualReps });
     }
 
-    // Loop
-    const firstPhase = orderList[0];
-    const exercise = state.workout.exercises[state.exerciseIndex];
-    const cad = exercise.cadence;
-    const getDur = (p) => {
-        if (p === PHASE.ECCENTRIC) return cad.eccentric;
-        if (p === PHASE.BOTTOM_HOLD) return cad.eccentricPause;
-        if (p === PHASE.CONCENTRIC) return cad.concentric;
-        if (p === PHASE.TOP_HOLD) return cad.concentricPause;
-        return 0;
-    };
+    // Loop — rebuild fresh order for next rep (reset peakContractionDone)
+    const freshOrder = buildPhaseOrder(currentExercise, false);
+    const firstPhase = freshOrder[0];
+    const firstDur = getDurationForPhase(firstPhase, currentExercise, freshOrder, 0, false);
 
     return enterPhase({
         ...state,
         repNumber: newRepCount,
-        actualReps: newActualReps
-    }, firstPhase, getDur(firstPhase), orderList);
+        actualReps: newActualReps,
+        peakContractionDone: false
+    }, firstPhase, firstDur, freshOrder);
 }
 
 export const useCadenceTimer = () => {

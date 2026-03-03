@@ -41,7 +41,8 @@ vi.mock('../hooks/useCadenceTimer', () => ({
         REST_SET: 'REST_SET',
         REST_EXERCISE: 'REST_EXERCISE',
         FINISHED: 'FINISHED',
-        ISOMETRIC_WORK: 'ISOMETRIC_WORK'
+        ISOMETRIC_WORK: 'ISOMETRIC_WORK',
+        PEAK_CONTRACTION: 'PEAK_CONTRACTION'
     }
 }));
 

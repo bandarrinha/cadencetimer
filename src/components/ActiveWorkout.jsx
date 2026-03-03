@@ -211,6 +211,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                 case PHASE.BOTTOM_HOLD:
                 case PHASE.TOP_HOLD:
                 case PHASE.ISOMETRIC_WORK: speak("Segura", 1.2); break;
+                case PHASE.PEAK_CONTRACTION: speak("Pico", 1.2); break;
                 case PHASE.REST_SET:
                 case PHASE.REST_EXERCISE: speak("Descansa"); break;
                 case PHASE.FINISHED: speak("Treino Concluído"); break;
@@ -283,7 +284,8 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
             case PHASE.CONCENTRIC: return 'var(--color-concentric)';
             case PHASE.BOTTOM_HOLD:
             case PHASE.TOP_HOLD:
-            case PHASE.ISOMETRIC_WORK: return 'var(--color-isometric)';
+            case PHASE.ISOMETRIC_WORK:
+            case PHASE.PEAK_CONTRACTION: return 'var(--color-isometric)';
             case PHASE.REST_SET:
             case PHASE.REST_EXERCISE: return 'var(--color-rest)';
             case PHASE.PREP: return 'var(--text-secondary)';
@@ -303,6 +305,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
             case PHASE.PREP: return 'PREPARAR';
             case PHASE.FINISHED: return 'FIM';
             case PHASE.ISOMETRIC_WORK: return 'ISOMETRIA';
+            case PHASE.PEAK_CONTRACTION: return 'PICO DE CONTRAÇÃO';
             default: return '';
         }
     };
@@ -467,21 +470,30 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                     {/* MODIFIED: PREP Phase is now INCLUDED here */}
                     {(!isResting && state.phase !== PHASE.FINISHED) && (
                         <div style={{
-                            fontSize: state.phase === PHASE.ISOMETRIC_WORK ? '7rem' : '10rem',
-                            fontWeight: 900, lineHeight: 1, fontVariantNumeric: 'tabular-nums',
+                            fontSize: state.phase === PHASE.ISOMETRIC_WORK ? '5.5rem' : '8rem',
+                            fontFamily: "'Digital-7 Mono', monospace",
+                            fontWeight: 'normal', lineHeight: 1, fontVariantNumeric: 'tabular-nums',
                             transition: 'all 0.3s ease',
                             marginBottom: '0px'
                         }}>
                             {(() => {
+                                if (state.phase === PHASE.PREP) {
+                                    return String(Math.ceil(Math.max(0, state.timeLeft))).padStart(2, '0');
+                                }
                                 if (state.phase === PHASE.ISOMETRIC_WORK) {
                                     if (currentExercise.failureMode && state.timeLeft <= 0) {
-                                        const t = Math.abs(Math.floor(state.timeLeft));
-                                        return '+' + Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0');
+                                        const t = Math.abs(state.timeLeft);
+                                        const mins = Math.floor(t / 60);
+                                        const secs = t % 60;
+                                        return '+' + mins + ':' + String(Math.floor(secs)).padStart(2, '0') + '.' + Math.floor((secs % 1) * 10);
                                     }
-                                    const t = Math.ceil(state.timeLeft);
-                                    return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0');
+                                    const t = Math.max(0, state.timeLeft);
+                                    const mins = Math.floor(t / 60);
+                                    const secs = t % 60;
+                                    return mins + ':' + String(Math.floor(secs)).padStart(2, '0') + '.' + Math.floor((secs % 1) * 10);
                                 }
-                                return String(Math.ceil(state.timeLeft)).padStart(2, '0');
+                                const t = Math.max(0, state.timeLeft);
+                                return String(Math.floor(t)).padStart(2, '0') + '.' + Math.floor((t % 1) * 10);
                             })()}
                         </div>
                     )}
@@ -547,9 +559,9 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                             boxSizing: 'border-box'
                         }}>
                             {/* Timer */}
-                            <div style={{ fontSize: '5rem', fontWeight: 900, lineHeight: 1 }}>
+                            <div style={{ fontSize: '5rem', fontFamily: "'Digital-7 Mono', monospace", fontWeight: 'normal', lineHeight: 1 }}>
                                 {(() => {
-                                    const t = Math.ceil(state.timeLeft);
+                                    const t = Math.ceil(Math.max(0, state.timeLeft));
                                     return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0');
                                 })()}
                             </div>
