@@ -132,7 +132,17 @@ export default function WorkoutPreview({ workout, onStart, onBack }) {
 
                                         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
                                             <span style={{ color: '#888', fontSize: '0.85em' }}>
-                                                {ex.sets} x {ex.reps}
+                                                {(() => {
+                                                    if (ex.failureMode) {
+                                                        const min = ex.repsMin != null ? ex.repsMin : ex.reps;
+                                                        const max = ex.repsMax != null ? ex.repsMax : ex.reps;
+                                                        if (min === max) {
+                                                            return `${ex.sets} x ${min}${ex.isIsometric ? 's' : ''}`;
+                                                        }
+                                                        return `${ex.sets} x ${min} a ${max}${ex.isIsometric ? 's' : ''}`;
+                                                    }
+                                                    return `${ex.sets} x ${ex.reps}${ex.isIsometric ? 's' : ''}`;
+                                                })()}
                                             </span>
 
                                             {advice && (
