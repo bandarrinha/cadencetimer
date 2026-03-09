@@ -39,7 +39,7 @@ export default function Settings({ onBack }) {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${prefix}_${new Date().toISOString().slice(0, 10)}.json`;
+        a.download = `${prefix}_${new Date().toISOString().slice(0, 10)}.cadence`;
         a.click();
         URL.revokeObjectURL(url);
         setShowExportModal(false);
@@ -173,7 +173,7 @@ export default function Settings({ onBack }) {
                         type="file"
                         ref={fileInputRef}
                         style={{ display: 'none' }}
-                        accept=".json"
+                        accept=".cadence,.json"
                         onChange={handleImport}
                     />
                 </div>
