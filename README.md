@@ -43,7 +43,7 @@ Uma aplicação web mobile-first (PWA) para treinos de musculação com controle
 *   **Anúncios por Voz (TTS):** "Desce", "Sobe", "Segura", "Descansa", "Preparar", "Treino Concluído" — em português (pt-BR).
 *   **Edição durante Descanso:** Campos para ajustar carga (kg) e repetições durante o intervalo, com botões +/−. Para exercícios unilaterais, exibe inputs separados por lado (E/D) e botão para trocar o lado inicial.
 *   **Conselho de Carga no Descanso:** Além do ícone indicador, exibe badges textuais ("Diminuir Carga", "Aumentar Carga", "Manter Carga") com cores de fundo correspondentes.
-*   **Info do Próximo Exercício/Série:** Exibido na tela de descanso.
+*   **Acompanhamento do Progresso:** O cabeçalho exibe a numeração do exercício atual e o total (ex: "#2 Agachamento" ou "Exercício X de Y") além das séries. A tela de descanso informa qual é o próximo exercício.
 *   **Botão Pular:** Avança para a próxima fase a qualquer momento.
 *   **Pausar/Retomar:** Pausa e retoma o treino.
 *   **Modal de Saída:** Ao sair do treino, exibe 3 opções: "FINALIZAR E SALVAR", "SAIR SEM SALVAR" e "Cancelar".
@@ -58,7 +58,7 @@ Uma aplicação web mobile-first (PWA) para treinos de musculação com controle
 
 ### 📋 Preview Pré-Treino
 
-*   Exibe lista de exercícios com séries × reps.
+*   Exibe lista de exercícios com a configuração de séries e repetições detalhada em cada um e ajustada conforme a modalidade do exercício (ex: "3 × 10").
 *   **Pré-preenchimento de Cargas:** Busca a última carga do histórico por exercício (por ID ou nome).
 *   Permite ajustar cargas antes de iniciar com inputs +/−.
 *   Exibe conselho de carga baseado no histórico.
@@ -89,9 +89,9 @@ Uma aplicação web mobile-first (PWA) para treinos de musculação com controle
 
 *   **Manter Tela Ligada:** Toggle para ativar/desativar o Wake Lock (mantém a tela do celular ligada durante o treino). Ativado por padrão.
 *   **Backup (Exportar):** Modal com 2 modos de exportação:
-    *   **Somente Treinos:** Exporta apenas configurações de treinos → gera `cadence_config_YYYY-MM-DD.json`.
-    *   **Backup Completo:** Exporta treinos + histórico → gera `cadence_backup_YYYY-MM-DD.json`.
-*   **Restaurar (Importar):** Importa dados de um arquivo JSON de backup.
+    *   **Somente Treinos:** Exporta apenas configurações de treinos → gera `cadence_config_YYYY-MM-DD.cadence`.
+    *   **Backup Completo:** Exporta treinos + histórico → gera `cadence_backup_YYYY-MM-DD.cadence`.
+*   **Restaurar (Importar):** Importa dados de um arquivo `.cadence` ou antigo JSON de backup.
     *   Se o backup contém histórico, exibe modal com opções: "Somente Treinos" ou "Tudo".
     *   Inclui validação e migração automática de campos ausentes (`biSetId`, `prepTime`). Campos adicionais (`startSide`, `repsMin`, `repsMax`) são migrados automaticamente no carregamento da tela de configuração.
 
