@@ -412,8 +412,20 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
             {/* Header Info - Relative & Flex */}
             <div style={{ padding: '10px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexShrink: 0, color: (state.phase === PHASE.PREP || state.phase === PHASE.FINISHED) ? 'white' : 'black' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
-                    <span style={{ fontSize: '1.2em', fontWeight: 600 }}>{currentExercise.name}</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ fontSize: '1.2em', fontWeight: 600, display: 'flex', alignItems: 'center', flexWrap: 'wrap', marginBottom: '4px' }}>
+                        <span style={{ 
+                            background: (state.phase === PHASE.PREP || state.phase === PHASE.FINISHED) ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.12)',
+                            padding: '2px 8px',
+                            borderRadius: '8px',
+                            marginRight: '8px', 
+                            fontSize: '0.75em',
+                            fontWeight: 'bold'
+                        }}>
+                            {state.exerciseIndex + 1}/{workout.exercises?.length || 0}
+                        </span>
+                        <span>{currentExercise.name}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
                         <span style={{ fontSize: '1.2em' }}>Série {displaySetNumber}/{currentExercise.sets}</span>
                         {/* Side Indicator */}
                         {currentExercise.isUnilateral && state.currentSide && (
