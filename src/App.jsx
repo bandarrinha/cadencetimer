@@ -22,6 +22,7 @@ function App() {
   });
   const [activeWorkout, setActiveWorkout] = useState(null); // Actual object for running workout
   const [initialWeights, setInitialWeights] = useState({}); // Weights from preview
+  const [initialAlternatives, setInitialAlternatives] = useState({}); // Alternatives selected in preview
   const [recoveryData, setRecoveryData] = useState(() => {
     const saved = localStorage.getItem('cadence_active_recovery');
     if (saved) {
@@ -58,12 +59,13 @@ function App() {
     setView('PREVIEW');
   };
 
-  const handlePreviewStart = (weights) => {
+  const handlePreviewStart = (weights, alternatives) => {
     setInitialWeights(weights);
+    setInitialAlternatives(alternatives || {});
     setView('ACTIVE');
   };
 
-  const handleFinishWorkout = (weightData, duration) => {
+  const handleFinishWorkout = (weightData, duration, activeAlternatives = {}) => {
     // Save to History
     const history = JSON.parse(localStorage.getItem('cadence_history') || '[]');
     const date = new Date().toISOString();
@@ -75,7 +77,7 @@ function App() {
         workoutId: activeWorkout.id,
         workoutName: activeWorkout.name,
         exerciseId: d.exerciseId,
-        exerciseName: ex ? ex.name : 'Unknown',
+        exerciseName: ex ? (activeAlternatives[d.exerciseId] && ex.alternativeName ? ex.alternativeName : ex.name) : 'Unknown',
         setNumber: d.setNumber,
         reps: d.reps,
         weight: d.weight,
@@ -178,6 +180,7 @@ function App() {
           workout={activeWorkout}
           initialState={recoveryData}
           initialWeights={initialWeights}
+          initialAlternatives={initialAlternatives}
           onExit={() => { setActiveWorkout(null); setView('HOME'); setRecoveryData(null); }}
           onFinishWorkout={handleFinishWorkout}
         />

@@ -18,7 +18,8 @@ const DEFAULT_EXERCISE = {
     biSetId: null, // Added for grouping
     prepTime: 5, // Added for configurable prep time
     startSide: 'LEFT', // Added: Default starting side
-    peakContraction: { enabled: false, duration: 3, position: 'after_concentric' }
+    peakContraction: { enabled: false, duration: 3, position: 'after_concentric' },
+    alternativeName: ''
 };
 
 const DEFAULT_WORKOUT = {
@@ -40,6 +41,7 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
             if (e.repsMin === undefined) e.repsMin = e.reps;
             if (e.repsMax === undefined) e.repsMax = e.reps;
             if (e.peakContraction === undefined) e.peakContraction = { enabled: false, duration: 3, position: 'after_concentric' };
+            if (e.alternativeName === undefined) e.alternativeName = '';
         }));
         return parsed;
     });
@@ -338,6 +340,12 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                                         onChange={(e) => updateExercise(idx, 'name', e.target.value)}
                                         style={{ background: 'transparent', border: 'none', borderBottom: '1px solid #444', color: 'white', fontSize: '1.2em', width: '100%', padding: '4px 0' }}
                                         placeholder="Nome do Exercício"
+                                    />
+                                    <input
+                                        value={ex.alternativeName || ''}
+                                        onChange={(e) => updateExercise(idx, 'alternativeName', e.target.value)}
+                                        style={{ background: 'transparent', border: 'none', borderBottom: '1px dashed #666', color: '#aaa', fontSize: '0.9em', width: '100%', padding: '4px 0', marginTop: '4px' }}
+                                        placeholder="Exercício Alternativo (Opcional)"
                                     />
                                 </div>
                                 <div style={{ display: 'flex', gap: '4px' }}>

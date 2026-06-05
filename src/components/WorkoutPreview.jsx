@@ -6,6 +6,8 @@ import WeightAdviceIcon from './common/WeightAdviceIcon';
 export default function WorkoutPreview({ workout, onStart, onBack }) {
     const history = JSON.parse(localStorage.getItem('cadence_history') || '[]');
 
+    const [selectedAlternatives, setSelectedAlternatives] = useState({});
+
     const [adjustedWeights, setAdjustedWeights] = useState(() => {
         const defaults = {};
 
@@ -50,7 +52,7 @@ export default function WorkoutPreview({ workout, onStart, onBack }) {
     };
 
     const handleStart = () => {
-        onStart(adjustedWeights);
+        onStart(adjustedWeights, selectedAlternatives);
     };
 
     return (
@@ -127,8 +129,17 @@ export default function WorkoutPreview({ workout, onStart, onBack }) {
                                             textOverflow: 'ellipsis',
                                             textAlign: 'left'
                                         }}>
-                                            {ex.name}
+                                            {selectedAlternatives[ex.id] && ex.alternativeName ? ex.alternativeName : ex.name}
                                         </div>
+
+                                        {ex.alternativeName && (
+                                            <button 
+                                                onClick={() => setSelectedAlternatives(prev => ({ ...prev, [ex.id]: !prev[ex.id] }))}
+                                                style={{ fontSize: '0.75em', padding: '2px 8px', background: 'var(--color-primary)', color: 'black', borderRadius: '12px', border: 'none', cursor: 'pointer', marginBottom: '4px', alignSelf: 'flex-start', fontWeight: 'bold' }}
+                                            >
+                                                Trocar p/ {selectedAlternatives[ex.id] ? ex.name : ex.alternativeName}
+                                            </button>
+                                        )}
 
                                         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
                                             <span style={{ color: '#888', fontSize: '0.85em' }}>

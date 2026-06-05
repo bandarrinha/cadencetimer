@@ -8,7 +8,7 @@ import DashedTimer from './common/DashedTimer';
 import WorkoutSummary from './WorkoutSummary';
 import WeightAdviceIcon from './common/WeightAdviceIcon';
 
-export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initialState, initialWeights }) {
+export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initialState, initialWeights, initialAlternatives }) {
     const { state, start, pause, resume, skip, registerFailure, finishWorkout, logSetData, setStartSide, recover, clearRecovery } = useCadenceTimer();
     const { speak, playBeep } = useTTS();
     const prevPhaseRef = useRef(state.phase);
@@ -25,6 +25,13 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
     // Local state for inputs during rest (Map: { [exId]: { weight: '', reps: '' } })
     const [inputValues, setInputValues] = useState({});
     const inputValuesRef = useRef({}); // Ref to avoid stale closures in auto-save
+
+    const [activeAlternatives, setActiveAlternatives] = useState(initialAlternatives || {});
+
+    const getExerciseName = (ex) => {
+        if (!ex) return '';
+        return (activeAlternatives[ex.id] && ex.alternativeName) ? ex.alternativeName : ex.name;
+    };
 
     const [showExitConfirm, setShowExitConfirm] = useState(false);
 
@@ -391,7 +398,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                 <WorkoutSummary
                     workout={workout}
                     weightData={state.weightData}
-                    onSave={(finalData, duration) => onFinishWorkout(finalData, duration)}
+                    onSave={(finalData, duration) => onFinishWorkout(finalData, duration, activeAlternatives)}
                     onDiscard={onExit}
                     startTime={state.startTime}
                     finishTime={state.finishTime}
@@ -423,7 +430,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                         }}>
                             {state.exerciseIndex + 1}/{workout.exercises?.length || 0}
                         </span>
-                        <span>{currentExercise.name}</span>
+                        <span>{getExerciseName(currentExercise)}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px' }}>
                         <span style={{ fontSize: '1.2em' }}>Série {displaySetNumber}/{currentExercise.sets}</span>
@@ -616,9 +623,19 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                                                 justifyContent: 'space-between',
                                                 marginBottom: '4px'
                                             }}>
-                                                <span style={{ fontWeight: 'bold', fontSize: '0.9em' }}>
-                                                    {ex.name}
-                                                </span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <span style={{ fontWeight: 'bold', fontSize: '0.9em' }}>
+                                                        {getExerciseName(ex)}
+                                                    </span>
+                                                    {ex.alternativeName && (
+                                                        <button 
+                                                            onClick={() => setActiveAlternatives(prev => ({ ...prev, [ex.id]: !prev[ex.id] }))}
+                                                            style={{ fontSize: '0.65em', padding: '2px 6px', background: '#e0e0e0', color: 'black', borderRadius: '4px', border: '1px solid #ccc', cursor: 'pointer' }}
+                                                        >
+                                                            Trocar p/ {activeAlternatives[ex.id] ? ex.name : ex.alternativeName}
+                                                        </button>
+                                                    )}
+                                                </div>
                                                 {advice && (
                                                     <span style={{
                                                         fontSize: '0.7rem',
@@ -744,7 +761,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
 
                                     const formatExName = (ex) => {
                                         const w = getNextWeight(ex.id);
-                                        return w ? `${ex.name} (${w})` : ex.name;
+                                        return w ? `${getExerciseName(ex)} (${w})` : getExerciseName(ex);
                                     };
 
                                     if (state.phase === PHASE.REST_EXERCISE) {
@@ -765,7 +782,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                                         if (currentExercise.biSetId) {
                                             return (
                                                 <span>
-                                                    <b>Próxima Série:</b> Série {state.setNumber} — {activeInputExercises.map(ex => ex.name).join(' → ')}
+                                                    <b>Próxima Série:</b> Série {state.setNumber} — {activeInputExercises.map(ex => getExerciseName(ex)).join(' → ')}
                                                 </span>
                                             );
                                         } else {
