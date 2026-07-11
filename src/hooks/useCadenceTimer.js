@@ -12,7 +12,8 @@ export const PHASE = {
     REST_EXERCISE: 'REST_EXERCISE',
     FINISHED: 'FINISHED',
     ISOMETRIC_WORK: 'ISOMETRIC_WORK',
-    PEAK_CONTRACTION: 'PEAK_CONTRACTION'
+    PEAK_CONTRACTION: 'PEAK_CONTRACTION',
+    OCCLUSION_HOLD: 'OCCLUSION_HOLD'
 };
 
 const STORAGE_KEY = 'cadence_active_recovery';
@@ -277,6 +278,23 @@ function transitionPhase(state) {
         // Transition to Next Exercise -> SKIP PREP (Go directly to Work)
         const nextExercise = workout.exercises[exerciseIndex + 1];
 
+        const isOcclusion = workout.adaptedVascularOcclusion;
+        if (isOcclusion) {
+            return {
+                ...state,
+                exerciseIndex: exerciseIndex + 1,
+                phase: PHASE.OCCLUSION_HOLD,
+                timeLeft: 20,
+                phaseDuration: 20,
+                setNumber: 1,
+                repNumber: 0,
+                actualReps: 0,
+                peakContractionDone: false,
+                currentSide: nextExercise.isUnilateral ? (nextExercise.startSide || 'LEFT') : null,
+                nextStartSide: nextExercise.isUnilateral ? (nextExercise.startSide || 'LEFT') : 'LEFT'
+            };
+        }
+
         // We need to calculate the initial phase for the next exercise
         const nextOrder = buildPhaseOrder(nextExercise, false);
         const firstPhase = nextOrder[0];
@@ -326,6 +344,22 @@ function transitionPhase(state) {
                     // Loop back to the first exercise of the Group -> SKIP PREP (Direct to work)
                     const targetExercise = workout.exercises[firstIndex];
 
+                    const isOcclusion = workout.adaptedVascularOcclusion;
+                    if (isOcclusion) {
+                        return {
+                            ...state,
+                            exerciseIndex: firstIndex,
+                            phase: PHASE.OCCLUSION_HOLD,
+                            timeLeft: 20,
+                            phaseDuration: 20,
+                            repNumber: 0,
+                            actualReps: 0,
+                            peakContractionDone: false,
+                            currentSide: targetExercise.isUnilateral ? (targetExercise.startSide || 'LEFT') : null,
+                            nextStartSide: targetExercise.isUnilateral ? (targetExercise.startSide || 'LEFT') : 'LEFT'
+                        };
+                    }
+
                     // Calculate initial phase for target exercise
                     const targetOrder = buildPhaseOrder(targetExercise, false);
                     const firstPhaseTarget = targetOrder[0];
@@ -350,6 +384,23 @@ function transitionPhase(state) {
 
         // Start flow logic
 
+        // Standard Flow
+        const nextSide = (phase === PHASE.REST_SET && currentExercise.isUnilateral)
+            ? (state.nextStartSide || 'LEFT')
+            : state.currentSide;
+
+        const isOcclusion = workout.adaptedVascularOcclusion;
+        if (isOcclusion) {
+            return {
+                ...state,
+                currentSide: nextSide,
+                peakContractionDone: false,
+                phase: PHASE.OCCLUSION_HOLD,
+                timeLeft: 20,
+                phaseDuration: 20
+            };
+        }
+
         // Check if Isometric Exercise
         if (currentExercise.isIsometric) {
             // Isometric Flow: PREP -> ISOMETRIC_WORK -> REST
@@ -359,6 +410,7 @@ function transitionPhase(state) {
 
             return {
                 ...state,
+                currentSide: nextSide,
                 phase: PHASE.ISOMETRIC_WORK,
                 timeLeft: targetDuration, // Counts down target
                 phaseDuration: targetDuration,
@@ -366,14 +418,26 @@ function transitionPhase(state) {
             };
         }
 
-        // Standard Flow
-        const nextSide = (phase === PHASE.REST_SET && currentExercise.isUnilateral)
-            ? (state.nextStartSide || 'LEFT')
-            : state.currentSide;
-
         const freshOrder = buildPhaseOrder(currentExercise, false);
         const firstDur = getDurationForPhase(freshOrder[0], currentExercise, freshOrder, 0, false);
         return enterPhase({ ...state, currentSide: nextSide, peakContractionDone: false }, freshOrder[0], firstDur, freshOrder);
+    }
+
+    if (phase === PHASE.OCCLUSION_HOLD) {
+        if (currentExercise.isIsometric) {
+            const targetDuration = currentExercise.repsMax || currentExercise.reps;
+            return {
+                ...state,
+                phase: PHASE.ISOMETRIC_WORK,
+                timeLeft: targetDuration,
+                phaseDuration: targetDuration,
+                isometricTime: 0
+            };
+        } else {
+            const freshOrder = buildPhaseOrder(currentExercise, false);
+            const firstDur = getDurationForPhase(freshOrder[0], currentExercise, freshOrder, 0, false);
+            return enterPhase({ ...state, peakContractionDone: false }, freshOrder[0], firstDur, freshOrder);
+        }
     }
 
     // Handle PEAK_CONTRACTION completion -> update peakContractionDone flag

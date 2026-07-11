@@ -284,6 +284,19 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                         </button>
                     </div>
                 </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', background: '#2a2a2a', padding: '8px 12px', borderRadius: '8px' }}>
+                    <input 
+                        type="checkbox" 
+                        id="adapted-occlusion"
+                        checked={activeWorkout.adaptedVascularOcclusion || false} 
+                        onChange={(e) => updateActiveWorkout({ ...activeWorkout, adaptedVascularOcclusion: e.target.checked })} 
+                        style={{ width: '18px', height: '18px' }}
+                    />
+                    <label htmlFor="adapted-occlusion" style={{ color: '#ccc', fontSize: '0.9em', cursor: 'pointer' }}>
+                        Oclusão Vascular Adaptado (20s Isometria no pico antes de cada série)
+                    </label>
+                </div>
             </header>
 
             {activeWorkout.exercises.map((ex, idx) => {

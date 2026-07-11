@@ -220,6 +220,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                 case PHASE.TOP_HOLD:
                 case PHASE.ISOMETRIC_WORK: speak("Segura", 1.2); break;
                 case PHASE.PEAK_CONTRACTION: speak("Pico", 1.2); break;
+                case PHASE.OCCLUSION_HOLD: speak("Oclusão, segura vinte segundos", 1.2); break;
                 case PHASE.REST_SET:
                 case PHASE.REST_EXERCISE: speak("Descansa"); break;
                 case PHASE.FINISHED: speak("Treino Concluído"); break;
@@ -293,6 +294,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
             case PHASE.BOTTOM_HOLD:
             case PHASE.TOP_HOLD:
             case PHASE.ISOMETRIC_WORK:
+            case PHASE.OCCLUSION_HOLD:
             case PHASE.PEAK_CONTRACTION: return 'var(--color-isometric)';
             case PHASE.REST_SET:
             case PHASE.REST_EXERCISE: return 'var(--color-rest)';
@@ -314,6 +316,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
             case PHASE.FINISHED: return 'FIM';
             case PHASE.ISOMETRIC_WORK: return 'ISOMETRIA';
             case PHASE.PEAK_CONTRACTION: return 'PICO DE CONTRAÇÃO';
+            case PHASE.OCCLUSION_HOLD: return 'OCLUSÃO (Pico)';
             default: return '';
         }
     };
