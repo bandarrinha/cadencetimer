@@ -278,7 +278,7 @@ function transitionPhase(state) {
         // Transition to Next Exercise -> SKIP PREP (Go directly to Work)
         const nextExercise = workout.exercises[exerciseIndex + 1];
 
-        const isOcclusion = workout.adaptedVascularOcclusion;
+        const isOcclusion = nextExercise.adaptedVascularOcclusion;
         if (isOcclusion) {
             return {
                 ...state,
@@ -292,6 +292,24 @@ function transitionPhase(state) {
                 peakContractionDone: false,
                 currentSide: nextExercise.isUnilateral ? (nextExercise.startSide || 'LEFT') : null,
                 nextStartSide: nextExercise.isUnilateral ? (nextExercise.startSide || 'LEFT') : 'LEFT'
+            };
+        }
+
+        if (nextExercise.isIsometric) {
+            const targetDuration = nextExercise.repsMax || nextExercise.reps;
+            return {
+                ...state,
+                exerciseIndex: exerciseIndex + 1,
+                phase: PHASE.ISOMETRIC_WORK,
+                timeLeft: targetDuration,
+                phaseDuration: targetDuration,
+                setNumber: 1,
+                repNumber: 0,
+                actualReps: 0,
+                peakContractionDone: false,
+                currentSide: nextExercise.isUnilateral ? (nextExercise.startSide || 'LEFT') : null,
+                nextStartSide: nextExercise.isUnilateral ? (nextExercise.startSide || 'LEFT') : 'LEFT',
+                isometricTime: 0
             };
         }
 
@@ -344,7 +362,7 @@ function transitionPhase(state) {
                     // Loop back to the first exercise of the Group -> SKIP PREP (Direct to work)
                     const targetExercise = workout.exercises[firstIndex];
 
-                    const isOcclusion = workout.adaptedVascularOcclusion;
+                    const isOcclusion = targetExercise.adaptedVascularOcclusion;
                     if (isOcclusion) {
                         return {
                             ...state,
@@ -357,6 +375,24 @@ function transitionPhase(state) {
                             peakContractionDone: false,
                             currentSide: targetExercise.isUnilateral ? (targetExercise.startSide || 'LEFT') : null,
                             nextStartSide: targetExercise.isUnilateral ? (targetExercise.startSide || 'LEFT') : 'LEFT'
+                        };
+                    }
+
+                    if (targetExercise.isIsometric) {
+                        const targetDuration = targetExercise.repsMax || targetExercise.reps;
+                        return {
+                            ...state,
+                            exerciseIndex: firstIndex,
+                            phase: PHASE.ISOMETRIC_WORK,
+                            timeLeft: targetDuration,
+                            phaseDuration: targetDuration,
+                            // setNumber is already correct (N+1)
+                            repNumber: 0,
+                            actualReps: 0,
+                            peakContractionDone: false,
+                            currentSide: targetExercise.isUnilateral ? (targetExercise.startSide || 'LEFT') : null,
+                            nextStartSide: targetExercise.isUnilateral ? (targetExercise.startSide || 'LEFT') : 'LEFT',
+                            isometricTime: 0
                         };
                     }
 
@@ -389,7 +425,7 @@ function transitionPhase(state) {
             ? (state.nextStartSide || 'LEFT')
             : state.currentSide;
 
-        const isOcclusion = workout.adaptedVascularOcclusion;
+        const isOcclusion = currentExercise.adaptedVascularOcclusion;
         if (isOcclusion) {
             return {
                 ...state,

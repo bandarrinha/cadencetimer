@@ -19,7 +19,8 @@ const DEFAULT_EXERCISE = {
     prepTime: 5, // Added for configurable prep time
     startSide: 'LEFT', // Added: Default starting side
     peakContraction: { enabled: false, duration: 3, position: 'after_concentric' },
-    alternativeName: ''
+    alternativeName: '',
+    adaptedVascularOcclusion: false
 };
 
 const DEFAULT_WORKOUT = {
@@ -42,6 +43,7 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
             if (e.repsMax === undefined) e.repsMax = e.reps;
             if (e.peakContraction === undefined) e.peakContraction = { enabled: false, duration: 3, position: 'after_concentric' };
             if (e.alternativeName === undefined) e.alternativeName = '';
+            if (e.adaptedVascularOcclusion === undefined) e.adaptedVascularOcclusion = false;
         }));
         return parsed;
     });
@@ -285,18 +287,6 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', background: '#2a2a2a', padding: '8px 12px', borderRadius: '8px' }}>
-                    <input 
-                        type="checkbox" 
-                        id="adapted-occlusion"
-                        checked={activeWorkout.adaptedVascularOcclusion || false} 
-                        onChange={(e) => updateActiveWorkout({ ...activeWorkout, adaptedVascularOcclusion: e.target.checked })} 
-                        style={{ width: '18px', height: '18px' }}
-                    />
-                    <label htmlFor="adapted-occlusion" style={{ color: '#ccc', fontSize: '0.9em', cursor: 'pointer' }}>
-                        Oclusão Vascular Adaptado (20s Isometria no pico antes de cada série)
-                    </label>
-                </div>
             </header>
 
             {activeWorkout.exercises.map((ex, idx) => {
@@ -448,6 +438,10 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                                 <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9em', background: '#2a2a2a', padding: '6px 12px', borderRadius: '20px' }}>
                                     <input type="checkbox" checked={ex.isIsometric} onChange={(e) => updateExercise(idx, 'isIsometric', e.target.checked)} />
                                     Isometria
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9em', background: '#2a2a2a', padding: '6px 12px', borderRadius: '20px', border: ex.adaptedVascularOcclusion ? '1px solid #e040fb' : '1px solid transparent' }}>
+                                    <input type="checkbox" checked={ex.adaptedVascularOcclusion || false} onChange={(e) => updateExercise(idx, 'adaptedVascularOcclusion', e.target.checked)} />
+                                    Oclusão
                                 </label>
                             </div>
 
