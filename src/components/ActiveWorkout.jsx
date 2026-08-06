@@ -99,7 +99,8 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                             // Standard Save
                             const finalReps = !isNaN(rVal) ? rVal : lastEntry.reps;
                             const isIso = ex && ex.isIsometric;
-                            logSetData(exId, lastEntry.setNumber, isIso ? 0 : finalReps, finalWeight, isIso ? finalReps : 0);
+                            const isAero = ex && ex.isAerobic;
+                            logSetData(exId, lastEntry.setNumber, (isIso || isAero) ? 0 : finalReps, finalWeight, (isIso || isAero) ? finalReps : 0);
                         }
                     }
                 });
@@ -200,7 +201,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                             if ((!sWeight || sWeight === 0) && logs.length >= 2) {
                                 sWeight = logs[logs.length - 2].weight;
                             }
-                            sReps = ex.isIsometric ? Math.floor(lastLog.time) : lastLog.reps;
+                            sReps = (ex.isIsometric || ex.isAerobic) ? Math.floor(lastLog.time) : lastLog.reps;
                         }
                         newInputs[ex.id] = { weight: sWeight || '', reps: sReps };
                     }
@@ -219,10 +220,17 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                 case PHASE.BOTTOM_HOLD:
                 case PHASE.TOP_HOLD:
                 case PHASE.ISOMETRIC_WORK: speak("Segura", 1.2); break;
+                case PHASE.AEROBIC_WORK: speak("Começar", 1.2); break;
                 case PHASE.PEAK_CONTRACTION: speak("Pico", 1.2); break;
                 case PHASE.OCCLUSION_HOLD: speak("Oclusão, segura vinte segundos", 1.2); break;
                 case PHASE.REST_SET:
-                case PHASE.REST_EXERCISE: speak("Descansa"); break;
+                case PHASE.REST_EXERCISE: 
+                    if (prevP === PHASE.AEROBIC_WORK) {
+                        speak("Terminar");
+                    } else {
+                        speak("Descansa");
+                    }
+                    break;
                 case PHASE.FINISHED: speak("Treino Concluído"); break;
             }
             prevPhaseRef.current = p;
@@ -271,8 +279,9 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                 const rVal = parseInt(vals.reps);
                 const finalReps = !isNaN(rVal) ? rVal : lastEntry.reps;
                 const isIso = ex && ex.isIsometric;
+                const isAero = ex && ex.isAerobic;
 
-                logSetData(exId, lastEntry.setNumber, isIso ? 0 : finalReps, finalWeight, isIso ? finalReps : 0);
+                logSetData(exId, lastEntry.setNumber, (isIso || isAero) ? 0 : finalReps, finalWeight, (isIso || isAero) ? finalReps : 0);
             }
         }
     };
@@ -296,6 +305,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
             case PHASE.ISOMETRIC_WORK:
             case PHASE.OCCLUSION_HOLD:
             case PHASE.PEAK_CONTRACTION: return 'var(--color-isometric)';
+            case PHASE.AEROBIC_WORK: return '#00bcd4';
             case PHASE.REST_SET:
             case PHASE.REST_EXERCISE: return 'var(--color-rest)';
             case PHASE.PREP: return 'var(--text-secondary)';
@@ -315,6 +325,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
             case PHASE.PREP: return 'PREPARAR';
             case PHASE.FINISHED: return 'FIM';
             case PHASE.ISOMETRIC_WORK: return 'ISOMETRIA';
+            case PHASE.AEROBIC_WORK: return 'AERÓBICO';
             case PHASE.PEAK_CONTRACTION: return 'PICO DE CONTRAÇÃO';
             case PHASE.OCCLUSION_HOLD: return 'OCLUSÃO (Pico)';
             default: return '';
@@ -501,7 +512,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                             margin="10px 0"
                         >
                             <div style={{
-                                fontSize: state.phase === PHASE.ISOMETRIC_WORK ? '5rem' : '6.5rem',
+                                fontSize: (state.phase === PHASE.ISOMETRIC_WORK || state.phase === PHASE.AEROBIC_WORK) ? '5rem' : '6.5rem',
                                 fontFamily: "'Digital-7 Mono', monospace",
                                 fontWeight: 'normal', lineHeight: 1, fontVariantNumeric: 'tabular-nums',
                                 transition: 'all 0.3s ease',
@@ -511,8 +522,8 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                                     if (state.phase === PHASE.PREP) {
                                         return String(Math.ceil(Math.max(0, state.timeLeft))).padStart(2, '0');
                                     }
-                                    if (state.phase === PHASE.ISOMETRIC_WORK) {
-                                        if (currentExercise.failureMode && state.timeLeft <= 0) {
+                                    if (state.phase === PHASE.ISOMETRIC_WORK || state.phase === PHASE.AEROBIC_WORK) {
+                                        if (state.phase === PHASE.ISOMETRIC_WORK && currentExercise.failureMode && state.timeLeft <= 0) {
                                             const t = Math.abs(state.timeLeft);
                                             const mins = Math.floor(t / 60);
                                             const secs = t % 60;
@@ -544,8 +555,8 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 ...feedbackStyle // Highlight applied here
                             }}>
-                                {currentExercise.isIsometric
-                                    ? (() => { const t = Math.floor(state.isometricTime); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); })()
+                                {currentExercise.isIsometric || currentExercise.isAerobic
+                                    ? (() => { const t = Math.floor(currentExercise.isAerobic ? (state.aerobicTime || 0) : state.isometricTime); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); })()
                                     : (
                                         <span>
                                             Rep {state.actualReps + 1}
@@ -555,7 +566,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                             </div>
 
                             {/* Meta Info Below Reps */}
-                            {(currentExercise.failureMode || !currentExercise.isIsometric) && (
+                            {(currentExercise.failureMode || (!currentExercise.isIsometric && !currentExercise.isAerobic)) && (
                                 <div style={{ opacity: 0.7, fontSize: '1.2em' }}>
                                     {currentExercise.failureMode
                                         ? `Meta: ${currentExercise.repsMin || currentExercise.reps} - ${currentExercise.repsMax || currentExercise.reps}`
@@ -718,7 +729,7 @@ export default function ActiveWorkout({ workout, onExit, onFinishWorkout, initia
                                                         compact={true}
                                                     />
                                                     <span style={{ fontSize: '0.75rem', color: '#555', marginLeft: '6px' }}>
-                                                        {ex.isIsometric ? 'seg' : 'reps'}
+                                                        {(ex.isIsometric || ex.isAerobic) ? 'seg' : 'reps'}
                                                     </span>
                                                     <NumberInput
                                                         value={inputValues[ex.id]?.reps || ''}

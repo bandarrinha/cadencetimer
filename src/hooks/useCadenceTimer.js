@@ -12,6 +12,7 @@ export const PHASE = {
     REST_EXERCISE: 'REST_EXERCISE',
     FINISHED: 'FINISHED',
     ISOMETRIC_WORK: 'ISOMETRIC_WORK',
+    AEROBIC_WORK: 'AEROBIC_WORK',
     PEAK_CONTRACTION: 'PEAK_CONTRACTION',
     OCCLUSION_HOLD: 'OCCLUSION_HOLD'
 };
@@ -61,6 +62,7 @@ export function timerReducer(state, action) {
                 repNumber: 0,
                 actualReps: 0,
                 isometricTime: 0,
+                aerobicTime: 0,
                 exerciseIndex: 0,
                 startTime: Date.now(), // Capture start time
                 finishTime: null,
@@ -76,13 +78,18 @@ export function timerReducer(state, action) {
             const delta = typeof action.payload === 'number' && !isNaN(action.payload) ? action.payload : 0;
             const newTime = state.timeLeft - delta;
 
-            // Isometric Logic
+            // Isometric & Aerobic Logic
             let newIsoTime = state.isometricTime;
+            let newAerobicTime = state.aerobicTime || 0;
             const currentEx = state.workout?.exercises[state.exerciseIndex];
             const isIsoWork = state.phase === PHASE.ISOMETRIC_WORK;
+            const isAeroWork = state.phase === PHASE.AEROBIC_WORK;
 
             if (isIsoWork) {
                 newIsoTime += action.payload;
+            }
+            if (isAeroWork) {
+                newAerobicTime += action.payload;
             }
 
             // If time is up...
@@ -104,10 +111,10 @@ export function timerReducer(state, action) {
                 }
 
                 // Normal transition
-                return transitionPhase({ ...state, isometricTime: newIsoTime, totalWorkoutTime: state.totalWorkoutTime + action.payload });
+                return transitionPhase({ ...state, isometricTime: newIsoTime, aerobicTime: newAerobicTime, totalWorkoutTime: state.totalWorkoutTime + action.payload });
             }
 
-            return { ...state, timeLeft: newTime, isometricTime: newIsoTime, totalWorkoutTime: state.totalWorkoutTime + action.payload };
+            return { ...state, timeLeft: newTime, isometricTime: newIsoTime, aerobicTime: newAerobicTime, totalWorkoutTime: state.totalWorkoutTime + action.payload };
         }
         case 'SKIP_PHASE':
             return transitionPhase(state);
@@ -295,6 +302,24 @@ function transitionPhase(state) {
             };
         }
 
+        if (nextExercise.isAerobic) {
+            const targetDuration = nextExercise.reps;
+            return {
+                ...state,
+                exerciseIndex: exerciseIndex + 1,
+                phase: PHASE.AEROBIC_WORK,
+                timeLeft: targetDuration,
+                phaseDuration: targetDuration,
+                setNumber: 1,
+                repNumber: 0,
+                actualReps: 0,
+                peakContractionDone: false,
+                currentSide: nextExercise.isUnilateral ? (nextExercise.startSide || 'LEFT') : null,
+                nextStartSide: nextExercise.isUnilateral ? (nextExercise.startSide || 'LEFT') : 'LEFT',
+                aerobicTime: 0
+            };
+        }
+
         if (nextExercise.isIsometric) {
             const targetDuration = nextExercise.repsMax || nextExercise.reps;
             return {
@@ -378,6 +403,23 @@ function transitionPhase(state) {
                         };
                     }
 
+                    if (targetExercise.isAerobic) {
+                        const targetDuration = targetExercise.reps;
+                        return {
+                            ...state,
+                            exerciseIndex: firstIndex,
+                            phase: PHASE.AEROBIC_WORK,
+                            timeLeft: targetDuration,
+                            phaseDuration: targetDuration,
+                            repNumber: 0,
+                            actualReps: 0,
+                            peakContractionDone: false,
+                            currentSide: targetExercise.isUnilateral ? (targetExercise.startSide || 'LEFT') : null,
+                            nextStartSide: targetExercise.isUnilateral ? (targetExercise.startSide || 'LEFT') : 'LEFT',
+                            aerobicTime: 0
+                        };
+                    }
+
                     if (targetExercise.isIsometric) {
                         const targetDuration = targetExercise.repsMax || targetExercise.reps;
                         return {
@@ -437,6 +479,19 @@ function transitionPhase(state) {
             };
         }
 
+        // Check if Aerobic Exercise
+        if (currentExercise.isAerobic) {
+            const targetDuration = currentExercise.reps;
+            return {
+                ...state,
+                currentSide: nextSide,
+                phase: PHASE.AEROBIC_WORK,
+                timeLeft: targetDuration,
+                phaseDuration: targetDuration,
+                aerobicTime: 0
+            };
+        }
+
         // Check if Isometric Exercise
         if (currentExercise.isIsometric) {
             // Isometric Flow: PREP -> ISOMETRIC_WORK -> REST
@@ -493,6 +548,10 @@ function transitionPhase(state) {
     const idx = order.indexOf(phase);
     if (idx === -1) {
         // Should not happen unless logic err OR custom phase like ISOMETRIC_WORK
+        if (phase === PHASE.AEROBIC_WORK) {
+            return finishSet(state);
+        }
+
         if (phase === PHASE.ISOMETRIC_WORK) {
             // If we are here, timeLeft <= 0 (timer expired)
             if (!currentExercise.failureMode) {
@@ -575,8 +634,8 @@ function finishSet(state) {
     const setLog = {
         exerciseId: currentExercise.id,
         setNumber,
-        reps: currentExercise.isIsometric ? 0 : actualReps,
-        time: currentExercise.isIsometric ? Math.floor(state.isometricTime) : 0,
+        reps: (currentExercise.isIsometric || currentExercise.isAerobic) ? 0 : actualReps,
+        time: currentExercise.isIsometric ? Math.floor(state.isometricTime) : (currentExercise.isAerobic ? Math.floor(state.aerobicTime || state.phaseDuration) : 0),
 
         weight: suggestedWeight,
         biSetId: currentExercise.biSetId || null,

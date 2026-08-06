@@ -12,6 +12,7 @@ const DEFAULT_EXERCISE = {
     failureMode: true,
     startConcentric: false,
     isIsometric: false,
+    isAerobic: false,
     cadence: { eccentric: 3, eccentricPause: 1, concentric: 1, concentricPause: 0 },
     restSet: 45,
     restExercise: 60,
@@ -44,6 +45,7 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
             if (e.peakContraction === undefined) e.peakContraction = { enabled: false, duration: 3, position: 'after_concentric' };
             if (e.alternativeName === undefined) e.alternativeName = '';
             if (e.adaptedVascularOcclusion === undefined) e.adaptedVascularOcclusion = false;
+            if (e.isAerobic === undefined) e.isAerobic = false;
         }));
         return parsed;
     });
@@ -383,7 +385,7 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                                 </div>
 
                                 {/* Dynamic Reps/Range Section */}
-                                {ex.failureMode ? (
+                                {(ex.failureMode && !ex.isAerobic) ? (
                                     <div style={{ display: 'flex', gap: '8px' }}>
                                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
                                             <label style={{ fontSize: '0.9em', color: '#ccc', marginBottom: '6px' }}>
@@ -413,7 +415,7 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                                 ) : (
                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
                                         <label style={{ fontSize: '0.9em', color: '#ccc', marginBottom: '6px' }}>
-                                            {ex.isIsometric ? 'Tempo (s)' : 'Reps Alvo'}
+                                            {(ex.isIsometric || ex.isAerobic) ? 'Tempo (s)' : 'Reps Alvo'}
                                         </label>
                                         <input
                                             type="number"
@@ -427,17 +429,37 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                             </div>
 
                             <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9em', background: '#2a2a2a', padding: '6px 12px', borderRadius: '20px' }}>
-                                    <input type="checkbox" checked={ex.failureMode} onChange={(e) => updateExercise(idx, 'failureMode', e.target.checked)} />
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9em', background: '#2a2a2a', padding: '6px 12px', borderRadius: '20px', opacity: ex.isAerobic ? 0.5 : 1 }}>
+                                    <input type="checkbox" checked={ex.failureMode} onChange={(e) => updateExercise(idx, 'failureMode', e.target.checked)} disabled={ex.isAerobic} />
                                     Até a Falha?
                                 </label>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9em', background: '#2a2a2a', padding: '6px 12px', borderRadius: '20px' }}>
-                                    <input type="checkbox" checked={ex.startConcentric} onChange={(e) => updateExercise(idx, 'startConcentric', e.target.checked)} disabled={ex.isIsometric} />
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9em', background: '#2a2a2a', padding: '6px 12px', borderRadius: '20px', opacity: (ex.isIsometric || ex.isAerobic) ? 0.5 : 1 }}>
+                                    <input type="checkbox" checked={ex.startConcentric} onChange={(e) => updateExercise(idx, 'startConcentric', e.target.checked)} disabled={ex.isIsometric || ex.isAerobic} />
                                     Começar Concêntrica
                                 </label>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9em', background: '#2a2a2a', padding: '6px 12px', borderRadius: '20px' }}>
-                                    <input type="checkbox" checked={ex.isIsometric} onChange={(e) => updateExercise(idx, 'isIsometric', e.target.checked)} />
+                                    <input type="checkbox" checked={ex.isIsometric} onChange={(e) => {
+                                        if (e.target.checked) {
+                                            const newEx = [...activeWorkout.exercises];
+                                            newEx[idx] = { ...newEx[idx], isIsometric: true, isAerobic: false };
+                                            updateActiveWorkout({ ...activeWorkout, exercises: newEx });
+                                        } else {
+                                            updateExercise(idx, 'isIsometric', false);
+                                        }
+                                    }} />
                                     Isometria
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9em', background: '#2a2a2a', padding: '6px 12px', borderRadius: '20px' }}>
+                                    <input type="checkbox" checked={ex.isAerobic || false} onChange={(e) => {
+                                        if (e.target.checked) {
+                                            const newEx = [...activeWorkout.exercises];
+                                            newEx[idx] = { ...newEx[idx], isAerobic: true, isIsometric: false };
+                                            updateActiveWorkout({ ...activeWorkout, exercises: newEx });
+                                        } else {
+                                            updateExercise(idx, 'isAerobic', false);
+                                        }
+                                    }} />
+                                    Aeróbico
                                 </label>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9em', background: '#2a2a2a', padding: '6px 12px', borderRadius: '20px', border: ex.adaptedVascularOcclusion ? '1px solid #e040fb' : '1px solid transparent' }}>
                                     <input type="checkbox" checked={ex.adaptedVascularOcclusion || false} onChange={(e) => updateExercise(idx, 'adaptedVascularOcclusion', e.target.checked)} />
@@ -445,7 +467,7 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                                 </label>
                             </div>
 
-                            {!ex.isIsometric && (
+                            {!(ex.isIsometric || ex.isAerobic) && (
                                 <>
                                     <h4 style={{ margin: '0 0 8px', color: '#888', fontSize: '0.9em', textTransform: 'uppercase', letterSpacing: '1px' }}>Cadência (Segundos)</h4>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '4px', textAlign: 'center', background: '#121212', padding: '8px', borderRadius: '8px' }}>
@@ -468,7 +490,7 @@ export default function WorkoutSetup({ initialWorkoutId, onBack, onUpdateWorkout
                             )}
 
                             {/* Peak Contraction Settings */}
-                            {!ex.isIsometric && (
+                            {!(ex.isIsometric || ex.isAerobic) && (
                                 <div style={{ marginTop: '12px', borderTop: '1px solid #333', paddingTop: '12px' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                                         <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.9em', background: '#2a2a2a', padding: '6px 12px', borderRadius: '20px', border: ex.peakContraction?.enabled ? '1px solid #e040fb' : '1px solid transparent' }}>
